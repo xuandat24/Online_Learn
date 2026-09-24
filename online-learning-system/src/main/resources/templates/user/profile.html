@@ -1,0 +1,44 @@
+<!-- Thư mục: src/main/resources/templates/user/profile.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/user-layout :: user-layout(~{::title}, ~{::#user-content})}">
+<head>
+    <title>Thông tin cá nhân - OnlineLearn</title>
+</head>
+<body>
+    <div id="user-content">
+        <h1 style="font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem;">Hồ sơ học viên</h1>
+        <p style="color: var(--text-muted); margin-bottom: 2rem;">Xem và cập nhật thông tin tài khoản của bạn</p>
+
+        <div th:if="${successMessage}" style="background-color: #dcfce7; color: #15803d; border: 1px solid #86efac; padding: 0.75rem 1rem; border-radius: 0.375rem; margin-bottom: 1.5rem;" th:text="${successMessage}">
+            Cập nhật thành công!
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 2rem; max-width: 600px;">
+            <form th:action="@{/user/profile}" th:object="${user}" method="post">
+                <div style="margin-bottom: 1.25rem;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Họ và tên</label>
+                    <input type="text" th:field="*{fullName}" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem;" required>
+                </div>
+
+                <div style="margin-bottom: 1.25rem;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Email (Không thể thay đổi)</label>
+                    <input type="email" th:field="*{email}" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem; background: #f1f5f9;" readonly>
+                </div>
+
+                <div style="margin-bottom: 1.25rem;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Số điện thoại</label>
+                    <input type="text" th:field="*{mobile}" class="form-control" style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Địa chỉ</label>
+                    <textarea th:field="*{address}" rows="3" style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem;"></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Lưu thay đổi</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

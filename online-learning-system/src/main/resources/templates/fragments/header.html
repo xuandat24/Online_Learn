@@ -1,0 +1,45 @@
+<!-- Thư mục: src/main/resources/templates/fragments/header.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <header th:fragment="site-header" class="navbar">
+        <div class="container nav-container">
+            <a th:href="@{/}" class="brand-logo">OnlineLearn</a>
+            <nav>
+                <ul class="nav-links">
+                    <li><a th:href="@{/}">Trang chủ</a></li>
+                    <li><a th:href="@{/courses}">Khóa học</a></li>
+                    
+                    <!-- Khách chưa đăng nhập -->
+                    <li sec:authorize="isAnonymous()">
+                        <a th:href="@{/login}" class="btn btn-outline">Đăng nhập</a>
+                    </li>
+                    <li sec:authorize="isAnonymous()">
+                        <a th:href="@{/register}" class="btn btn-primary">Đăng ký</a>
+                    </li>
+                    
+                    <!-- Người dùng đã đăng nhập -->
+                    <li sec:authorize="hasRole('CUSTOMER')">
+                        <a th:href="@{/user/dashboard}">Khóa học của tôi</a>
+                    </li>
+                    <li sec:authorize="hasRole('EXPERT')">
+                        <a th:href="@{/content/subjects}" class="btn btn-outline">Quản lý nội dung</a>
+                    </li>
+                    <li sec:authorize="hasRole('ADMIN')">
+                        <a th:href="@{/admin/dashboard}" class="btn btn-outline">Quản trị</a>
+                    </li>
+                    <li sec:authorize="isAuthenticated()">
+                        <form th:action="@{/logout}" method="post" style="display: inline;">
+                            <button type="submit" class="btn btn-outline" style="border: none; cursor: pointer;">Đăng xuất</button>
+                        </form>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+</body>
+</html>
