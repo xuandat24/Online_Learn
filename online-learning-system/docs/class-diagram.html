@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Online Learning System - Class Diagram (UML)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #1e293b;
+            --border-color: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-primary: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Top Header Bar */
+        header {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 100;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .badge-project {
+            background: var(--accent-gradient);
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        h1 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: #0f172a;
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            color: #fff;
+        }
+
+        .tab-btn.active {
+            background: var(--accent-primary);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+        }
+
+        /* Action Buttons */
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #334155;
+            color: #fff;
+            border: 1px solid var(--border-color);
+            padding: 7px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-action:hover {
+            background: #475569;
+            transform: translateY(-1px);
+        }
+
+        .btn-action.primary {
+            background: var(--accent-gradient);
+            border: none;
+        }
+
+        .btn-action.primary:hover {
+            opacity: 0.95;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        /* Diagram Canvas Area */
+        main {
+            flex: 1;
+            position: relative;
+            background: radial-gradient(circle at 50% 50%, #1e293b 0%, #0f172a 100%);
+            overflow: hidden;
+        }
+
+        .diagram-container {
+            width: 100%;
+            height: 100%;
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .diagram-container.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mermaid-wrapper {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mermaid-wrapper svg {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* Floating Toolbar */
+        .floating-controls {
+            position: absolute;
+            bottom: 24px;
+            right: 24px;
+            display: flex;
+            gap: 8px;
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(12px);
+            padding: 6px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+            z-index: 50;
+        }
+
+        .control-btn {
+            background: #334155;
+            color: #fff;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .control-btn:hover {
+            background: var(--accent-primary);
+        }
+
+        /* Legend */
+        .legend {
+            position: absolute;
+            bottom: 24px;
+            left: 24px;
+            background: rgba(30, 41, 59, 0.9);
+            backdrop-filter: blur(12px);
+            padding: 12px 18px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+            font-size: 12px;
+            color: var(--text-muted);
+            z-index: 50;
+        }
+
+        .legend-title {
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 6px;
+        }
+
+        .legend-items {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-symbol {
+            font-family: 'JetBrains Mono', monospace;
+            color: #60a5fa;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-title">
+            <span class="badge-project">SBA301</span>
+            <h1>Online Learning System — UML Class Diagram</h1>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('all')">Toàn bộ hệ thống</button>
+            <button class="tab-btn" onclick="switchTab('quiz')">Phân hệ Quiz & Test</button>
+            <button class="tab-btn" onclick="switchTab('subject')">Phân hệ Môn học & Bài học</button>
+            <button class="tab-btn" onclick="switchTab('sales')">Phân hệ Đăng ký & Bán hàng</button>
+            <button class="tab-btn" onclick="switchTab('user')">Phân hệ User & Marketing</button>
+        </div>
+
+        <div class="header-actions">
+            <button class="btn-action" onclick="resetCurrentZoom()">🔄 Reset Zoom</button>
+            <button class="btn-action primary" onclick="exportSVG()">⬇️ Tải file SVG</button>
+            <button class="btn-action primary" onclick="exportPNG()">🖼️ Tải file PNG</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- Tab 1: All System -->
+        <div id="tab-all" class="diagram-container active">
+            <div class="mermaid-wrapper" id="wrap-all">
+                <pre class="mermaid">
+classDiagram
+    direction TB
+
+    class BaseEntity {
+        <<abstract>>
+        +LocalDateTime createdAt
+        +LocalDateTime updatedAt
+    }
+
+    class Role {
+        +Long id
+        +String code
+        +String name
+        +String description
+    }
+
+    class User {
+        +Long id
+        +String fullName
+        +Gender gender
+        +String email
+        +String mobile
+        +String password
+        +UserStatus status
+        +Boolean emailVerified
+    }
+
+    class SubjectCategory {
+        +Long id
+        +String name
+        +Boolean status
+    }
+
+    class DimensionType {
+        +Long id
+        +String name
+        +Boolean status
+    }
+
+    class SubjectDimension {
+        +Long id
+        +String name
+        +String description
+    }
+
+    class Subject {
+        +Long id
+        +String name
+        +String thumbnail
+        +Boolean featured
+        +SubjectStatus status
+    }
+
+    class Lesson {
+        +Long id
+        +String name
+        +Integer orderNum
+        +LessonTypeEnum type
+        +String videoLink
+        +LessonStatus status
+    }
+
+    class QuestionLevel {
+        +Long id
+        +String name
+        +String code
+    }
+
+    class TestType {
+        +Long id
+        +String name
+        +String code
+    }
+
+    class Question {
+        +Long id
+        +QuestionStatus status
+        +String content
+        +MediaType mediaType
+        +String explanation
+    }
+
+    class AnswerOption {
+        +Long id
+        +String content
+        +Boolean isCorrect
+    }
+
+    class Quiz {
+        +Long id
+        +String name
+        +Integer duration
+        +Double passRate
+        +String description
+    }
+
+    class QuizQuestion {
+        +Long id
+        +Integer orderNum
+    }
+
+    class QuizAttempt {
+        +Long id
+        +LocalDateTime startTime
+        +LocalDateTime finishTime
+        +QuizAttemptStatus status
+        +Double score
+        +Boolean isPassed
+    }
+
+    class QuizAnswer {
+        +Long id
+        +Boolean markedForReview
+        +Boolean isCorrect
+    }
+
+    class PricePackage {
+        +Long id
+        +String packageName
+        +Integer accessDuration
+        +BigDecimal listPrice
+        +BigDecimal salePrice
+    }
+
+    class Registration {
+        +Long id
+        +String fullName
+        +String email
+        +LocalDateTime registrationTime
+        +RegistrationStatus status
+        +BigDecimal totalCost
+        +LocalDateTime validFrom
+        +LocalDateTime validTo
+    }
+
+    class CourseAccess {
+        +Long id
+        +LocalDateTime grantedDate
+        +LocalDateTime expiryDate
+        +CourseAccessStatus status
+    }
+
+    class PostCategory {
+        +Long id
+        +String name
+    }
+
+    class Post {
+        +Long id
+        +String title
+        +PostStatus status
+    }
+
+    class Slider {
+        +Long id
+        +String name
+        +String image
+        +SliderStatus status
+    }
+
+    class Setting {
+        +Long id
+        +SettingType type
+        +String code
+        +String value
+    }
+
+    %% Kế thừa BaseEntity
+    BaseEntity <|-- User
+    BaseEntity <|-- SubjectCategory
+    BaseEntity <|-- DimensionType
+    BaseEntity <|-- SubjectDimension
+    BaseEntity <|-- Subject
+    BaseEntity <|-- Lesson
+    BaseEntity <|-- QuestionLevel
+    BaseEntity <|-- TestType
+    BaseEntity <|-- Question
+    BaseEntity <|-- AnswerOption
+    BaseEntity <|-- Quiz
+    BaseEntity <|-- QuizQuestion
+    BaseEntity <|-- QuizAttempt
+    BaseEntity <|-- QuizAnswer
+    BaseEntity <|-- PricePackage
+    BaseEntity <|-- Registration
+    BaseEntity <|-- CourseAccess
+    BaseEntity <|-- PostCategory
+    BaseEntity <|-- Post
+    BaseEntity <|-- Slider
+    BaseEntity <|-- Setting
+
+    %% Quan hệ
+    User --> Role : role
+    Subject --> User : owner
+    Subject --> SubjectCategory : category
+    Subject "1" *-- "*" PricePackage : pricePackages
+    Subject "1" *-- "*" SubjectDimension : dimensions
+    Subject "1" *-- "*" Lesson : lessons
+    SubjectDimension --> DimensionType : type
+
+    Lesson --> Lesson : parentLesson
+    Lesson --> Quiz : quiz
+
+    Quiz --> Subject : subject
+    Quiz --> QuestionLevel : level
+    Quiz --> TestType : quizType
+    Quiz "1" *-- "*" QuizQuestion : quizQuestions
+    QuizQuestion --> Question : question
+    Quiz "1" *-- "*" QuizAttempt : attempts
+
+    Question --> Subject : subject
+    Question --> Lesson : lesson
+    Question --> QuestionLevel : level
+    Question "1" *-- "*" AnswerOption : answers
+    Question "*" -- "*" SubjectDimension : dimensions
+
+    QuizAttempt --> User : customer
+    QuizAttempt "1" *-- "*" QuizAnswer : answers
+    QuizAnswer --> Question : question
+    QuizAnswer --> AnswerOption : selectedOption
+
+    Registration --> Subject : subject
+    Registration --> PricePackage : pricePackage
+    Registration --> User : sale
+
+    CourseAccess --> User : customer
+    CourseAccess --> Subject : subject
+    CourseAccess --> Registration : registration
+
+    Post --> User : author
+    Post --> PostCategory : category
+                </pre>
+            </div>
+        </div>
+
+        <!-- Tab 2: Quiz Module -->
+        <div id="tab-quiz" class="diagram-container">
+            <div class="mermaid-wrapper" id="wrap-quiz">
+                <pre class="mermaid">
+classDiagram
+    direction LR
+
+    class Subject {
+        +Long id
+        +String name
+        +SubjectStatus status
+    }
+
+    class QuestionLevel {
+        +Long id
+        +String name
+        +String code
+    }
+
+    class TestType {
+        +Long id
+        +String name
+        +String code
+    }
+
+    class Quiz {
+        +Long id
+        +String name
+        +Integer duration
+        +Double passRate
+        +String description
+    }
+
+    class QuizQuestion {
+        +Long id
+        +Integer orderNum
+    }
+
+    class Question {
+        +Long id
+        +QuestionStatus status
+        +String content
+        +String mediaUrl
+        +MediaType mediaType
+        +String explanation
+    }
+
+    class AnswerOption {
+        +Long id
+        +String content
+        +Boolean isCorrect
+    }
+
+    class QuizAttempt {
+        +Long id
+        +LocalDateTime startTime
+        +LocalDateTime finishTime
+        +QuizAttemptStatus status
+        +Double score
+        +Boolean isPassed
+    }
+
+    class QuizAnswer {
+        +Long id
+        +Boolean markedForReview
+        +Boolean isCorrect
+    }
+
+    class User {
+        +Long id
+        +String fullName
+        +String email
+    }
+
+    Quiz --> Subject : subject
+    Quiz --> QuestionLevel : level
+    Quiz --> TestType : quizType
+    Quiz "1" *-- "*" QuizQuestion : contains
+    QuizQuestion --> Question : targets
+    Question "1" *-- "*" AnswerOption : answers
+    Question --> QuestionLevel : level
+    Question --> Subject : subject
+
+    Quiz "1" *-- "*" QuizAttempt : attempts
+    QuizAttempt --> User : customer
+    QuizAttempt "1" *-- "*" QuizAnswer : answers
+    QuizAnswer --> Question : question
+    QuizAnswer --> AnswerOption : selectedOption
+                </pre>
+            </div>
+        </div>
+
+        <!-- Tab 3: Subject & Lesson Module -->
+        <div id="tab-subject" class="diagram-container">
+            <div class="mermaid-wrapper" id="wrap-subject">
+                <pre class="mermaid">
+classDiagram
+    direction TB
+
+    class SubjectCategory {
+        +Long id
+        +String name
+        +Boolean status
+    }
+
+    class User {
+        +Long id
+        +String fullName
+        +String email
+    }
+
+    class Subject {
+        +Long id
+        +String name
+        +String thumbnail
+        +String briefInfo
+        +Boolean featured
+        +SubjectStatus status
+    }
+
+    class DimensionType {
+        +Long id
+        +String name
+        +Boolean status
+    }
+
+    class SubjectDimension {
+        +Long id
+        +String name
+        +String description
+    }
+
+    class Lesson {
+        +Long id
+        +String name
+        +Integer orderNum
+        +LessonTypeEnum type
+        +String videoLink
+        +String htmlContent
+        +LessonStatus status
+    }
+
+    class Quiz {
+        +Long id
+        +String name
+        +Integer duration
+    }
+
+    Subject --> SubjectCategory : category
+    Subject --> User : owner (Expert)
+    Subject "1" *-- "*" SubjectDimension : dimensions
+    SubjectDimension --> DimensionType : type
+
+    Subject "1" *-- "*" Lesson : lessons
+    Lesson --> Lesson : parentLesson (1..N đệ quy)
+    Lesson --> Quiz : quiz (nếu type = QUIZ)
+                </pre>
+            </div>
+        </div>
+
+        <!-- Tab 4: Sales Module -->
+        <div id="tab-sales" class="diagram-container">
+            <div class="mermaid-wrapper" id="wrap-sales">
+                <pre class="mermaid">
+classDiagram
+    direction LR
+
+    class Subject {
+        +Long id
+        +String name
+        +SubjectStatus status
+    }
+
+    class PricePackage {
+        +Long id
+        +String packageName
+        +Integer accessDuration
+        +BigDecimal listPrice
+        +BigDecimal salePrice
+        +PackageStatus status
+    }
+
+    class User {
+        +Long id
+        +String fullName
+        +String email
+    }
+
+    class Registration {
+        +Long id
+        +String fullName
+        +String email
+        +String mobile
+        +LocalDateTime registrationTime
+        +RegistrationStatus status
+        +BigDecimal totalCost
+        +LocalDateTime validFrom
+        +LocalDateTime validTo
+    }
+
+    class CourseAccess {
+        +Long id
+        +LocalDateTime grantedDate
+        +LocalDateTime expiryDate
+        +CourseAccessStatus status
+    }
+
+    Subject "1" *-- "*" PricePackage : pricePackages
+    Registration --> Subject : subject
+    Registration --> PricePackage : package
+    Registration --> User : sale (Nhân viên Sale)
+
+    CourseAccess --> User : customer (Học viên)
+    CourseAccess --> Subject : subject
+    CourseAccess --> Registration : registration
+                </pre>
+            </div>
+        </div>
+
+        <!-- Tab 5: User & Marketing Module -->
+        <div id="tab-user" class="diagram-container">
+            <div class="mermaid-wrapper" id="wrap-user">
+                <pre class="mermaid">
+classDiagram
+    direction TB
+
+    class Role {
+        +Long id
+        +String code
+        +String name
+        +String description
+    }
+
+    class User {
+        +Long id
+        +String fullName
+        +Gender gender
+        +String email
+        +String mobile
+        +UserStatus status
+        +Boolean emailVerified
+    }
+
+    class PostCategory {
+        +Long id
+        +String name
+        +Boolean status
+    }
+
+    class Post {
+        +Long id
+        +String title
+        +String briefInfo
+        +String thumbnail
+        +String content
+        +PostStatus status
+    }
+
+    class Slider {
+        +Long id
+        +String name
+        +String image
+        +String link
+        +Integer orderNum
+        +SliderStatus status
+    }
+
+    class Setting {
+        +Long id
+        +SettingType type
+        +String code
+        +String value
+        +SettingType type
+    }
+
+    User --> Role : role
+    Post --> User : author (Marketing)
+    Post --> PostCategory : category
+                </pre>
+            </div>
+        </div>
+
+        <!-- Floating Zoom Controls -->
+        <div class="floating-controls">
+            <button class="control-btn" title="Phóng to" onclick="zoomInCurrent()">➕</button>
+            <button class="control-btn" title="Thu nhỏ" onclick="zoomOutCurrent()">➖</button>
+            <button class="control-btn" title="Về ban đầu" onclick="resetCurrentZoom()">🎯</button>
+        </div>
+
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-title">Chú thích quan hệ UML:</div>
+            <div class="legend-items">
+                <div class="legend-item"><span class="legend-symbol">&lt;|--</span> <span>Kế thừa (Inheritance/BaseEntity)</span></div>
+                <div class="legend-item"><span class="legend-symbol">*--</span> <span>Quan hệ cấu thành (Composition 1 - N)</span></div>
+                <div class="legend-item"><span class="legend-symbol">--&gt;</span> <span>Liên kết / Khóa ngoại (Association N - 1)</span></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'dark',
+            themeVariables: {
+                darkMode: true,
+                background: '#1e293b',
+                primaryColor: '#2563eb',
+                primaryTextColor: '#f8fafc',
+                primaryBorderColor: '#3b82f6',
+                lineColor: '#60a5fa',
+                secondaryColor: '#334155',
+                tertiaryColor: '#0f172a'
+            },
+            class: {
+                useMaxWidth: false
+            }
+        });
+
+        const panZoomInstances = {};
+        let currentTabId = 'all';
+
+        async function initDiagrams() {
+            await mermaid.run();
+
+            // Setup svg-pan-zoom for all diagrams
+            ['all', 'quiz', 'subject', 'sales', 'user'].forEach(tabKey => {
+                const wrapper = document.getElementById(`wrap-${tabKey}`);
+                const svg = wrapper.querySelector('svg');
+                if (svg) {
+                    svg.setAttribute('id', `svg-${tabKey}`);
+                    svg.style.width = '100%';
+                    svg.style.height = '100%';
+                    try {
+                        panZoomInstances[tabKey] = svgPanZoom(svg, {
+                            zoomEnabled: true,
+                            controlIconsEnabled: false,
+                            fit: true,
+                            center: true,
+                            minZoom: 0.2,
+                            maxZoom: 10
+                        });
+                    } catch (e) {
+                        console.warn('PanZoom init error', e);
+                    }
+                }
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initDiagrams();
+        });
+
+        function switchTab(tabKey) {
+            currentTabId = tabKey;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            document.querySelectorAll('.diagram-container').forEach(c => c.classList.remove('active'));
+            const activeContainer = document.getElementById(`tab-${tabKey}`);
+            activeContainer.classList.add('active');
+
+            setTimeout(() => {
+                if (panZoomInstances[tabKey]) {
+                    panZoomInstances[tabKey].resize();
+                    panZoomInstances[tabKey].fit();
+                    panZoomInstances[tabKey].center();
+                }
+            }, 50);
+        }
+
+        function zoomInCurrent() {
+            if (panZoomInstances[currentTabId]) {
+                panZoomInstances[currentTabId].zoomIn();
+            }
+        }
+
+        function zoomOutCurrent() {
+            if (panZoomInstances[currentTabId]) {
+                panZoomInstances[currentTabId].zoomOut();
+            }
+        }
+
+        function resetCurrentZoom() {
+            if (panZoomInstances[currentTabId]) {
+                panZoomInstances[currentTabId].reset();
+                panZoomInstances[currentTabId].fit();
+                panZoomInstances[currentTabId].center();
+            }
+        }
+
+        function exportSVG() {
+            const svg = document.querySelector(`#tab-${currentTabId} svg`);
+            if (!svg) return alert('Chưa tìm thấy biểu đồ!');
+            const serializer = new XMLSerializer();
+            let source = serializer.serializeToString(svg);
+            if (!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
+                source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+            }
+            const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Class_Diagram_${currentTabId}.svg`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function exportPNG() {
+            const svg = document.querySelector(`#tab-${currentTabId} svg`);
+            if (!svg) return alert('Chưa tìm thấy biểu đồ!');
+            const serializer = new XMLSerializer();
+            let source = serializer.serializeToString(svg);
+            const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                const bbox = svg.getBBox();
+                const scale = 2; // high res
+                canvas.width = (bbox.width + 40) * scale;
+                canvas.height = (bbox.height + 40) * scale;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.scale(scale, scale);
+                ctx.drawImage(img, 20, 20);
+
+                const pngUrl = canvas.toDataURL('image/png');
+                const a = document.createElement('a');
+                a.href = pngUrl;
+                a.download = `Class_Diagram_${currentTabId}.png`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+            img.src = url;
+        }
+    </script>
+</body>
+</html>

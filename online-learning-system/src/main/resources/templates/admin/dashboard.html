@@ -1,0 +1,58 @@
+<!-- Thư mục: src/main/resources/templates/admin/dashboard.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/admin-layout :: admin-layout(~{::title}, ~{::#admin-content})}">
+<head>
+    <title>Bảng điều khiển Quản trị viên - OnlineLearn</title>
+</head>
+<body>
+    <div id="admin-content">
+        <h1 style="font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem;">Bảng điều khiển Quản trị viên</h1>
+        <p style="color: var(--text-muted); margin-bottom: 2rem;">Tổng quan số liệu và hoạt động của hệ thống học trực tuyến</p>
+
+        <!-- Thống kê Card Grid -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem;">
+            <div style="background: #ffffff; padding: 1.5rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">
+                <div style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem;">Tổng người dùng</div>
+                <div style="font-size: 2rem; font-weight: 700; color: var(--primary-color);" th:text="${totalUsers}">5</div>
+            </div>
+
+            <div style="background: #ffffff; padding: 1.5rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">
+                <div style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem;">Tổng số khóa học</div>
+                <div style="font-size: 2rem; font-weight: 700; color: var(--success-color);" th:text="${totalSubjects}">4</div>
+            </div>
+
+            <div style="background: #ffffff; padding: 1.5rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">
+                <div style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem;">Đơn đăng ký mới</div>
+                <div style="font-size: 2rem; font-weight: 700; color: var(--warning-color);" th:text="${totalRegistrations}">2</div>
+            </div>
+        </div>
+
+        <!-- Khóa học gần đây -->
+        <div style="background: #ffffff; padding: 1.5rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">
+            <h2 style="font-size: 1.25rem; margin-bottom: 1rem;">Danh sách khóa học gần đây</h2>
+            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-muted); font-size: 0.9rem;">
+                        <th style="padding: 0.75rem 0.5rem;">ID</th>
+                        <th style="padding: 0.75rem 0.5rem;">Tên khóa học</th>
+                        <th style="padding: 0.75rem 0.5rem;">Danh mục</th>
+                        <th style="padding: 0.75rem 0.5rem;">Trạng thái</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="subject : ${subjects}" style="border-bottom: 1px solid var(--border-color);">
+                        <td style="padding: 0.75rem 0.5rem;" th:text="${subject.id}">1</td>
+                        <td style="padding: 0.75rem 0.5rem; font-weight: 600;" th:text="${subject.name}">Java Core cơ bản</td>
+                        <td style="padding: 0.75rem 0.5rem;" th:text="${subject.category != null ? subject.category.name : '-'}">Lập trình</td>
+                        <td style="padding: 0.75rem 0.5rem;">
+                            <span style="display: inline-block; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.8rem; background: #dcfce7; color: #166534;"
+                                  th:text="${subject.status}">PUBLISHED</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

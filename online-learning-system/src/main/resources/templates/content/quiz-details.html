@@ -1,0 +1,120 @@
+<!-- Thư mục: src/main/resources/templates/content/quiz-details.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/content-layout :: content-layout(~{::title}, ~{::#content-body})}">
+<head>
+    <title th:text="${quiz.id != null ? 'Chỉnh sửa Quiz' : 'Tạo Quiz mới'}">Chi tiết Quiz</title>
+</head>
+<body>
+    <div id="content-body">
+        <div style="margin-bottom: 1.5rem;">
+            <a th:href="@{/content/quizzes}" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">← Quay lại danh sách Quiz & Test</a>
+            <h1 style="font-size: 1.75rem; font-weight: 700; margin-top: 0.25rem;"
+                th:text="${quiz.id != null ? 'Chỉnh sửa Quiz: ' + quiz.name : 'Tạo bài Quiz mới'}">
+                Tạo bài Quiz mới
+            </h1>
+        </div>
+
+        <!-- CẢNH BÁO NẾU QUIZ ĐÃ CÓ ATTEMPT (QUY TẮC BẢO VỆ DỮ LIỆU) -->
+        <div th:if="${hasAttempts}" style="background-color: #fee2e2; color: #991b1b; border: 1px solid #f87171; padding: 1rem 1.25rem; border-radius: 0.375rem; margin-bottom: 1.5rem;">
+            ⚠️ <strong>ĐÃ CÓ HỌC VIÊN LÀM BÀI:</strong><br>
+            Bài Quiz này đã ghi nhận lượt thi thực tế (QuizAttempt). Để bảo đảm tính minh bạch và toàn vẹn của kết quả điểm số, hệ thống <strong>khóa chỉnh sửa và xóa</strong> bài thi này.
+        </div>
+
+        <!-- Flash messages -->
+        <div th:if="${errorMessage}" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; padding: 0.75rem 1rem; border-radius: 0.375rem; margin-bottom: 1.5rem;" th:text="${errorMessage}"></div>
+
+        <div style="background: #ffffff; border-radius: 0.5rem; border: 1px solid var(--border-color); padding: 2rem; max-width: 850px;">
+            <form th:action="@{/content/quizzes/save}" th:object="${quiz}" method="post">
+                <input type="hidden" th:field="*{id}">
+
+                <div style="margin-bottom: 1.25rem;">
+                    <label style="display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.35rem;">Tên bài Quiz *</label>
+                    <input type="text" th:field="*{name}" th:disabled="${hasAttempts}" required placeholder="VD: Kiểm tra trắc nghiệm 15 phút" style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
+                    <div>
+                        <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Môn học *</label>
+                        <select name="subjectId" th:disabled="${hasAttempts}" required onchange="handleSubjectChange(this.value)" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border-color); border-radius: 0.375rem; background: #ffffff;">
+                            <option value="">-- Chọn môn học --</option>
+                            <option th:each="s : ${subjects}" th:value="${s.id}" th:text="${s.name}" th:selected="${quiz.subject != null && quiz.subject.id == s.id}"></option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Loại bài thi (Test Type) *</label>
+                        <select name="quizTypeId" th:disabled="${hasAttempts}" required style="width: 100%; padding: 0.6rem; border: 1px solid var(--border-color); border-radius: 0.375rem; background: #ffffff;">
+                            <option th:each="t : ${quizTypes}" th:value="${t.id}" th:text="${t.name}" th:selected="${quiz.quizType != null && quiz.quizType.id == t.id}"></option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
+                    <div>
+                        <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Thời gian thi (phút) *</label>
+                        <input type="number" th:field="*{duration}" th:disabled="${hasAttempts}" min="1" required style="width: 100%; padding: 0.6rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
+                    </div>
+
+                    <div>
+                        <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Điểm đạt (%) *</label>
+                        <input type="number" th:field="*{passRate}" th:disabled="${hasAttempts}" min="0" max="100" step="0.5" required style="width: 100%; padding: 0.6rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
+                    </div>
+
+                    <div>
+                        <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Mức độ câu hỏi</label>
+                        <select name="levelId" th:disabled="${hasAttempts}" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border-color); border-radius: 0.375rem; background: #ffffff;">
+                            <option th:each="lvl : ${levels}" th:value="${lvl.id}" th:text="${lvl.name}" th:selected="${quiz.level != null && quiz.level.id == lvl.id}"></option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.35rem;">Mô tả bài Quiz</label>
+                    <textarea th:field="*{description}" th:disabled="${hasAttempts}" rows="3" placeholder="Quy định làm bài, hướng dẫn học viên..." style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem;"></textarea>
+                </div>
+
+                <!-- ============================================================ -->
+                <!-- DANH SÁCH CÂU HỎI GẮN VÀO QUIZ -->
+                <!-- ============================================================ -->
+                <div style="margin-bottom: 1.5rem; padding: 1.25rem; background: #f8fafc; border-radius: 0.375rem; border: 1px solid var(--border-color);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <label style="font-weight: 700; font-size: 0.95rem;">Chọn câu hỏi cho bài Quiz</label>
+                        <span style="font-size: 0.85rem; color: var(--text-muted);">Tích chọn các câu hỏi thuộc môn học này</span>
+                    </div>
+
+                    <div th:if="${#lists.isEmpty(availableQuestions)}" style="color: var(--text-muted); font-style: italic; padding: 1rem 0;">
+                        Chưa có câu hỏi nào cho môn học này. Vui lòng thêm câu hỏi tại mục Ngân hàng câu hỏi trước.
+                    </div>
+
+                    <div th:unless="${#lists.isEmpty(availableQuestions)}" style="max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; background: #ffffff; padding: 1rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
+                        <label th:each="q : ${availableQuestions}" style="display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.5rem; border-bottom: 1px solid #f1f5f9; cursor: pointer;">
+                            <input type="checkbox" name="questionIds" th:value="${q.id}" th:disabled="${hasAttempts}"
+                                   th:checked="${#lists.contains(selectedQuestionIds, q.id)}" style="margin-top: 0.25rem; transform: scale(1.2);">
+                            <div>
+                                <strong th:text="${'#' + q.id + ': ' + q.content}">Câu hỏi...</strong>
+                                <div style="font-size: 0.8rem; color: var(--text-muted);">
+                                    Độ khó: <span th:text="${q.level != null ? q.level.name : '-'}">EASY</span> | Số đáp án: <span th:text="${q.answers != null ? q.answers.size() : 0}">4</span>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 1rem;">
+                    <button th:if="${!hasAttempts}" type="submit" class="btn btn-primary" style="padding: 0.65rem 1.5rem;">💾 Lưu bài Quiz</button>
+                    <a th:href="@{/content/quizzes}" class="btn btn-outline" style="padding: 0.65rem 1.5rem;">Quay lại</a>
+                </div>
+            </form>
+        </div>
+
+        <script>
+            function handleSubjectChange(subjectId) {
+                if (subjectId) {
+                    window.location.href = window.location.pathname + '?subjectId=' + subjectId;
+                }
+            }
+        </script>
+    </div>
+</body>
+</html>

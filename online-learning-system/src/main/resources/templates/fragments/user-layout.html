@@ -1,0 +1,78 @@
+<!-- Thư mục: src/main/resources/templates/fragments/user-layout.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:fragment="user-layout(title, content)">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:replace="${title}">User Portal - OnlineLearn</title>
+    <!-- Shared & User styles -->
+    <link rel="stylesheet" th:href="@{/shared/css/global.css}">
+    <style>
+        .user-container {
+            display: flex;
+            gap: 2rem;
+            margin-top: 1.5rem;
+        }
+        .user-sidebar {
+            width: 260px;
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            height: fit-content;
+        }
+        .user-sidebar h3 {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            color: var(--text-main);
+        }
+        .user-menu {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .user-menu a {
+            display: block;
+            padding: 0.6rem 0.8rem;
+            color: var(--text-main);
+            text-decoration: none;
+            border-radius: 0.375rem;
+            transition: background 0.2s;
+        }
+        .user-menu a:hover {
+            background-color: #f1f5f9;
+            color: var(--primary-color);
+        }
+        .user-content {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div th:replace="~{fragments/header :: site-header}"></div>
+
+    <div class="container user-container">
+        <aside class="user-sidebar">
+            <h3>Tài khoản học viên</h3>
+            <ul class="user-menu">
+                <li><a th:href="@{/user/dashboard}">📚 Khóa học của tôi</a></li>
+                <li><a th:href="@{/user/registrations}">🧾 Đơn đăng ký</a></li>
+                <li><a th:href="@{/user/profile}">👤 Thông tin cá nhân</a></li>
+            </ul>
+        </aside>
+
+        <main class="user-content">
+            <div th:replace="${content}">
+                <!-- Page-specific content injected here -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <div th:replace="~{fragments/footer :: site-footer}"></div>
+</body>
+</html>

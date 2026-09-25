@@ -1,0 +1,126 @@
+<!-- Thư mục: src/main/resources/templates/common/login.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng nhập - OnlineLearn</title>
+    <link rel="stylesheet" th:href="@{/shared/css/global.css}">
+    <style>
+        .auth-card {
+            max-width: 440px;
+            margin: 3rem auto;
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 2.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        .auth-card h2 {
+            margin-bottom: 0.5rem;
+            font-size: 1.5rem;
+            text-align: center;
+        }
+        .auth-card p.subtitle {
+            color: var(--text-muted);
+            text-align: center;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.35rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .form-control {
+            width: 100%;
+            padding: 0.65rem 0.85rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.375rem;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-control:focus {
+            border-color: var(--primary-color);
+        }
+        .alert {
+            padding: 0.75rem 1rem;
+            border-radius: 0.375rem;
+            margin-bottom: 1.25rem;
+            font-size: 0.9rem;
+        }
+        .alert-danger {
+            background-color: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fca5a5;
+        }
+        .alert-success {
+            background-color: #dcfce7;
+            color: #15803d;
+            border: 1px solid #86efac;
+        }
+        .demo-accounts {
+            margin-top: 1.5rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            background: #f8fafc;
+            padding: 0.75rem;
+            border-radius: 0.375rem;
+        }
+    </style>
+</head>
+<body>
+    <div th:replace="~{fragments/header :: site-header}"></div>
+
+    <main class="main-content container">
+        <div class="auth-card">
+            <h2>Đăng nhập</h2>
+            <p class="subtitle">Truy cập vào hệ thống học trực tuyến</p>
+
+            <!-- Thông báo lỗi khi đăng nhập thất bại -->
+            <div th:if="${param.error}" class="alert alert-danger">
+                Email hoặc mật khẩu không chính xác.
+            </div>
+
+            <!-- Thông báo đăng xuất thành công -->
+            <div th:if="${param.logout}" class="alert alert-success">
+                Bạn đã đăng xuất an toàn khỏi hệ thống.
+            </div>
+
+            <form th:action="@{/login}" method="post">
+                <div class="form-group">
+                    <label for="email">Địa chỉ Email</label>
+                    <input type="email" id="email" name="email" class="form-control" placeholder="admin@onlinelearn.com" required autofocus>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Mật khẩu</label>
+                    <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Đăng nhập</button>
+            </form>
+
+            <div style="margin-top: 1rem; text-align: center; font-size: 0.9rem;">
+                Chưa có tài khoản? <a th:href="@{/register}" style="color: var(--primary-color);">Đăng ký ngay</a>
+            </div>
+
+            <!-- Dữ liệu mẫu demo -->
+            <div class="demo-accounts">
+                <strong>👉 Tài khoản Demo:</strong><br>
+                • Admin: <code>admin@onlinelearn.com</code> / <code>Admin@123</code><br>
+                • Customer: <code>customer@onlinelearn.com</code> / <code>Customer@123</code>
+            </div>
+        </div>
+    </main>
+
+    <div th:replace="~{fragments/footer :: site-footer}"></div>
+</body>
+</html>

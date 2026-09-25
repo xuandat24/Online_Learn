@@ -1,0 +1,109 @@
+<!-- Thư mục: src/main/resources/templates/common/register.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng ký tài khoản - OnlineLearn</title>
+    <link rel="stylesheet" th:href="@{/shared/css/global.css}">
+    <style>
+        .auth-card {
+            max-width: 480px;
+            margin: 2.5rem auto;
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 2.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        .auth-card h2 {
+            margin-bottom: 0.5rem;
+            font-size: 1.5rem;
+            text-align: center;
+        }
+        .auth-card p.subtitle {
+            color: var(--text-muted);
+            text-align: center;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.35rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .form-control {
+            width: 100%;
+            padding: 0.65rem 0.85rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.375rem;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-control:focus {
+            border-color: var(--primary-color);
+        }
+        .alert {
+            padding: 0.75rem 1rem;
+            border-radius: 0.375rem;
+            margin-bottom: 1.25rem;
+            font-size: 0.9rem;
+        }
+        .alert-danger {
+            background-color: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fca5a5;
+        }
+    </style>
+</head>
+<body>
+    <div th:replace="~{fragments/header :: site-header}"></div>
+
+    <main class="main-content container">
+        <div class="auth-card">
+            <h2>Đăng ký tài khoản</h2>
+            <p class="subtitle">Bắt đầu hành trình học tập cùng OnlineLearn</p>
+
+            <div th:if="${errorMessage}" class="alert alert-danger" th:text="${errorMessage}">
+                Đã có lỗi xảy ra.
+            </div>
+
+            <!-- Form đăng ký binding với registerDto -->
+            <form th:action="@{/register}" method="post">
+                <div class="form-group">
+                    <label for="fullName">Họ và tên</label>
+                    <input type="text" id="fullName" name="fullName" class="form-control" placeholder="Nguyễn Văn A" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Địa chỉ Email</label>
+                    <input type="email" id="email" name="email" class="form-control" placeholder="example@email.com" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="mobile">Số điện thoại</label>
+                    <input type="tel" id="mobile" name="mobile" class="form-control" placeholder="0912345678" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Mật khẩu</label>
+                    <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Tạo tài khoản</button>
+            </form>
+
+            <div style="margin-top: 1.25rem; text-align: center; font-size: 0.9rem;">
+                Đã có tài khoản? <a th:href="@{/login}" style="color: var(--primary-color);">Đăng nhập</a>
+            </div>
+        </div>
+    </main>
+
+    <div th:replace="~{fragments/footer :: site-footer}"></div>
+</body>
+</html>

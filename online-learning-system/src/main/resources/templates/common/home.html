@@ -1,0 +1,112 @@
+<!-- Thư mục: src/main/resources/templates/common/home.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trang chủ - Hệ thống Học Trực Tuyến OnlineLearn</title>
+    <link rel="stylesheet" th:href="@{/shared/css/global.css}">
+    <style>
+        .hero {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: #ffffff;
+            padding: 4rem 0;
+            text-align: center;
+        }
+        .hero h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+        .hero p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto 2rem auto;
+        }
+        .course-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        .course-card {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .course-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        .course-card img {
+            width: 100%;
+            height: 160px;
+            object-fit: cover;
+        }
+        .course-card-body {
+            padding: 1.25rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .course-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--text-main);
+        }
+        .course-brief {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            flex: 1;
+        }
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-radius: 0.25rem;
+            background: #e0f2fe;
+            color: #0369a1;
+            margin-bottom: 0.5rem;
+            width: fit-content;
+        }
+    </style>
+</head>
+<body>
+    <div th:replace="~{fragments/header :: site-header}"></div>
+
+    <section class="hero">
+        <div class="container">
+            <h1>Khám Phá Tri Thức - Nâng Tầm Tương Lai</h1>
+            <p>Hàng ngàn khóa học lập trình, ngoại ngữ và kỹ năng từ các chuyên gia hàng đầu.</p>
+            <a th:href="@{/courses}" class="btn btn-primary" style="background-color: #ffffff; color: #1e3a8a;">Xem tất cả khóa học</a>
+        </div>
+    </section>
+
+    <main class="main-content container">
+        <h2>Khóa học nổi bật</h2>
+        <div class="course-grid">
+            <!-- Lặp qua danh sách khóa học được truyền từ Model -->
+            <div class="course-card" th:each="course : ${featuredCourses}">
+                <img th:src="${course.thumbnail != null ? course.thumbnail : 'https://picsum.photos/400/250'}"
+                     th:alt="${course.name}"
+                     src="https://picsum.photos/400/250">
+                <div class="course-card-body">
+                    <span class="badge" th:text="${course.category != null ? course.category.name : 'Chung'}">Lập trình</span>
+                    <h3 class="course-title" th:text="${course.name}">Tên khóa học mẫu</h3>
+                    <p class="course-brief" th:text="${course.briefInfo}">Mô tả ngắn gọn về khóa học...</p>
+                    <a th:href="@{'/courses/' + ${course.id}}" class="btn btn-outline">Xem chi tiết</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div th:replace="~{fragments/footer :: site-footer}"></div>
+</body>
+</html>

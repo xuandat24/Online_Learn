@@ -1,0 +1,64 @@
+<!-- Thư mục: src/main/resources/templates/content/subject-new.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/content-layout :: content-layout(~{::title}, ~{::#content-body})}">
+<head>
+    <title>Thêm Khóa học mới - OnlineLearn</title>
+</head>
+<body>
+    <div id="content-body">
+        <div style="margin-bottom: 1.5rem;">
+            <a th:href="@{/content/subjects}" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">← Quay lại danh sách môn học</a>
+            <h1 style="font-size: 1.75rem; font-weight: 700; margin-top: 0.25rem;">Thêm Khóa học mới (Admin)</h1>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">Tạo khóa học mới và phân công Giảng viên / Chuyên gia (Expert) phụ trách nội dung</p>
+        </div>
+
+        <div style="background: #ffffff; border-radius: 0.5rem; border: 1px solid var(--border-color); padding: 2rem; max-width: 800px;">
+            <form th:action="@{/content/subjects/new}" th:object="${subject}" method="post">
+                <div style="margin-bottom: 1.25rem;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Tên môn học / Khóa học *</label>
+                    <input type="text" th:field="*{name}" required placeholder="VD: Khóa học Lập trình Flutter" style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
+                    <div>
+                        <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Danh mục *</label>
+                        <select name="categoryId" required style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem; background: #ffffff;">
+                            <option value="">-- Chọn danh mục --</option>
+                            <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.name}"></option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Gán Chuyên gia phụ trách (Owner / Expert) *</label>
+                        <select name="ownerId" required style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem; background: #ffffff;">
+                            <option value="">-- Chọn Expert phụ trách --</option>
+                            <option th:each="exp : ${experts}" th:value="${exp.id}" th:text="${exp.fullName + ' (' + exp.email + ')'}"></option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 1.25rem;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Ảnh đại diện (Thumbnail URL)</label>
+                    <input type="url" th:field="*{thumbnail}" placeholder="https://picsum.photos/400/250" style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
+                </div>
+
+                <div style="margin-bottom: 1.25rem;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Thông tin tóm tắt (Brief Info)</label>
+                    <input type="text" th:field="*{briefInfo}" placeholder="Tóm tắt ngắn gọn 1-2 câu về khóa học..." style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Mô tả khóa học (Description)</label>
+                    <textarea th:field="*{description}" rows="5" placeholder="Mục tiêu khóa học, nội dung chi tiết..." style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem;"></textarea>
+                </div>
+
+                <div style="display: flex; gap: 1rem;">
+                    <button type="submit" class="btn btn-primary" style="padding: 0.65rem 1.5rem;">Tạo khóa học</button>
+                    <a th:href="@{/content/subjects}" class="btn btn-outline" style="padding: 0.65rem 1.5rem;">Hủy</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
