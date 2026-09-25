@@ -12,4 +12,6 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
     List<Lesson> findByParentLessonIdOrderByOrderNumAsc(Long parentId);
     List<Lesson> findBySubjectIdAndType(Long subjectId, com.onlinelearn.entity.enums.LessonTypeEnum type);
     List<Lesson> findBySubjectIdAndNameContainingIgnoreCaseOrderByOrderNumAsc(Long subjectId, String name);
+    List<Lesson> findByQuizId(Long quizId);
 }
+

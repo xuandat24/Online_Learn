@@ -1,4 +1,3 @@
-// Thư mục: src/main/java/com/onlinelearn/controller/common/HomeController.java
 package com.onlinelearn.controller.common;
 
 import com.onlinelearn.entity.Subject;
@@ -23,14 +22,20 @@ public class HomeController {
     @GetMapping({"/", "/home"})
     public String index(Model model) {
         List<Subject> featuredCourses = subjectRepository.findByFeaturedTrueAndStatus(SubjectStatus.PUBLISHED);
-        
-        // Nếu chưa có khóa học nổi bật, lấy tất cả khóa học PUBLISHED
+
         if (featuredCourses.isEmpty()) {
             featuredCourses = subjectRepository.findByStatus(SubjectStatus.PUBLISHED);
         }
 
-        // Truyền dữ liệu sang View qua Model
         model.addAttribute("featuredCourses", featuredCourses);
         return "common/home";
+    }
+
+    /**
+     * Redirect /content → /content/subjects (landing mặc định của khu vực quản lý nội dung)
+     */
+    @GetMapping("/content")
+    public String contentRedirect() {
+        return "redirect:/content/subjects";
     }
 }

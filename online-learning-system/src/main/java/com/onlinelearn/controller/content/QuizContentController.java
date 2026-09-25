@@ -1,4 +1,3 @@
-// Thư mục: src/main/java/com/onlinelearn/controller/content/QuizContentController.java
 package com.onlinelearn.controller.content;
 
 import com.onlinelearn.entity.*;
@@ -25,10 +24,12 @@ public class QuizContentController {
     private final QuestionRepository questionRepository;
     private final QuestionLevelRepository levelRepository;
     private final TestTypeRepository testTypeRepository;
+    private final SubjectDimensionRepository dimensionRepository;
+
+    // ─────────────────────────── LIST ───────────────────────────
 
     /**
-     * 8. Danh sách bài thi / Quiz (Quizzes List)
-     * URL: GET /content/quizzes
+     * GET /content/quizzes — Danh sách Quiz với filter/search
      */
     @GetMapping
     public String listQuizzes(@AuthenticationPrincipal CustomUserDetails userDetails,
@@ -40,51 +41,57 @@ public class QuizContentController {
         List<Quiz> quizzes = quizContentService.getQuizzesForUser(currentUser, subjectId, quizTypeId, keyword);
 
         model.addAttribute("quizzes", quizzes);
-        model.addAttribute("subjects", subjectRepository.findAll());
+        model.addAttribute("subjects", quizContentService.getSubjectsForUser(currentUser));
         model.addAttribute("quizTypes", testTypeRepository.findAll());
         model.addAttribute("selectedSubjectId", subjectId);
         model.addAttribute("selectedQuizTypeId", quizTypeId);
         model.addAttribute("keyword", keyword);
 
-        return "content/quiz-list";
+        return "content/quizzes/list";
     }
 
+    // ─────────────────────────── CREATE ───────────────────────────
+
     /**
-     * 9. Form thêm Quiz mới
-     * URL: GET /content/quizzes/new
+     * GET /content/quizzes/new — Form tạo Quiz mới
      */
     @GetMapping("/new")
-    public String newQuizForm(@RequestParam(value = "subjectId", required = false) Long subjectId, Model model) {
+    public String newQuizForm(@AuthenticationPrincipal CustomUserDetails userDetails,
+                              @RequestParam(value = "subjectId", required = false) Long subjectId,
+                              Model model) {
+        User currentUser = userDetails != null ? userDetails.getUser() : null;
         Quiz quiz = new Quiz();
         if (subjectId != null) {
             subjectRepository.findById(subjectId).ifPresent(quiz::setSubject);
         }
-
-        populateQuizFormModel(model, quiz, subjectId);
-        return "content/quiz-details";
+        populateFormModel(model, quiz, subjectId, currentUser);
+        return "content/quizzes/form";
     }
 
+    // ─────────────────────────── EDIT ───────────────────────────
+
     /**
-     * 9. Form chỉnh sửa Quiz (Quiz Details)
-     * URL: GET /content/quizzes/{id}
+     * GET /content/quizzes/{id}/edit — Form chỉnh sửa Quiz (luôn cho phép, kể cả đã có attempt)
      */
-    @GetMapping("/{id}")
-    public String editQuizForm(@PathVariable("id") Long id, Model model) {
+    @GetMapping("/{id}/edit")
+    public String editQuizForm(@AuthenticationPrincipal CustomUserDetails userDetails,
+                               @PathVariable("id") Long id,
+                               Model model) {
+        User currentUser = userDetails != null ? userDetails.getUser() : null;
         Quiz quiz = quizContentService.getQuizById(id);
         Long subjectId = quiz.getSubject() != null ? quiz.getSubject().getId() : null;
-
-        populateQuizFormModel(model, quiz, subjectId);
-        model.addAttribute("hasAttempts", quizContentService.hasAttempts(id));
-
-        return "content/quiz-details";
+        populateFormModel(model, quiz, subjectId, currentUser);
+        return "content/quizzes/form";
     }
 
+    // ─────────────────────────── SAVE ───────────────────────────
+
     /**
-     * Lưu bài Quiz cùng danh sách câu hỏi gắn kèm
-     * URL: POST /content/quizzes/save
+     * POST /content/quizzes/save — Lưu Quiz (Create hoặc Update)
      */
     @PostMapping("/save")
-    public String saveQuiz(@ModelAttribute("quiz") Quiz quiz,
+    public String saveQuiz(@AuthenticationPrincipal CustomUserDetails userDetails,
+                           @ModelAttribute("quiz") Quiz quiz,
                            @RequestParam("subjectId") Long subjectId,
                            @RequestParam(value = "levelId", required = false) Long levelId,
                            @RequestParam(value = "quizTypeId", required = false) Long quizTypeId,
@@ -92,46 +99,59 @@ public class QuizContentController {
                            RedirectAttributes redirectAttributes) {
         try {
             quizContentService.saveQuiz(quiz, subjectId, levelId, quizTypeId, questionIds);
-            redirectAttributes.addFlashAttribute("successMessage", "Lưu bài Quiz thành công!");
-        } catch (IllegalStateException e) {
-            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+            redirectAttributes.addFlashAttribute("successMessage", "✅ Lưu bài Quiz thành công!");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "❌ Lỗi: " + e.getMessage());
             if (quiz.getId() != null) {
-                return "redirect:/content/quizzes/" + quiz.getId();
+                return "redirect:/content/quizzes/" + quiz.getId() + "/edit";
             }
+            return "redirect:/content/quizzes/new?subjectId=" + subjectId;
         }
-
         return "redirect:/content/quizzes";
     }
 
+    // ─────────────────────────── DELETE ───────────────────────────
+
     /**
-     * Xóa bài Quiz (Chặn nếu đã có QuizAttempt)
-     * URL: POST /content/quizzes/{id}/delete
+     * POST /content/quizzes/{id}/delete — Xóa Quiz kèm toàn bộ dữ liệu liên quan
      */
     @PostMapping("/{id}/delete")
     public String deleteQuiz(@PathVariable("id") Long id, RedirectAttributes redirectAttributes) {
         try {
-            quizContentService.deleteQuiz(id);
-            redirectAttributes.addFlashAttribute("successMessage", "Xóa bài Quiz thành công!");
-        } catch (IllegalStateException e) {
-            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
+            QuizContentService.DeleteQuizResult result = quizContentService.deleteQuiz(id);
+            if (result.hasDetachedLessons()) {
+                redirectAttributes.addFlashAttribute("successMessage",
+                        "✅ Xóa Quiz thành công! Đã gỡ khỏi " + result.detachedLessonNames().size()
+                                + " Lesson: " + String.join(", ", result.detachedLessonNames()));
+            } else {
+                redirectAttributes.addFlashAttribute("successMessage", "✅ Xóa bài Quiz thành công!");
+            }
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "❌ Lỗi khi xóa: " + e.getMessage());
         }
-
         return "redirect:/content/quizzes";
     }
 
-    private void populateQuizFormModel(Model model, Quiz quiz, Long subjectId) {
+    // ─────────────────────────── HELPER ───────────────────────────
+
+    private void populateFormModel(Model model, Quiz quiz, Long subjectId, User currentUser) {
         model.addAttribute("quiz", quiz);
-        model.addAttribute("subjects", subjectRepository.findAll());
+        model.addAttribute("subjects", quizContentService.getSubjectsForUser(currentUser));
         model.addAttribute("levels", levelRepository.findAll());
         model.addAttribute("quizTypes", testTypeRepository.findAll());
 
+        List<Question> availableQuestions = new ArrayList<>();
+        List<SubjectDimension> dimensions = new ArrayList<>();
+
         if (subjectId != null) {
-            model.addAttribute("availableQuestions", questionRepository.findBySubjectId(subjectId));
-        } else {
-            model.addAttribute("availableQuestions", new ArrayList<>());
+            availableQuestions = questionRepository.findBySubjectId(subjectId);
+            dimensions = dimensionRepository.findBySubjectId(subjectId);
         }
 
-        List<Long> selectedQuestionIds = quiz.getQuizQuestions() != null
+        model.addAttribute("availableQuestions", availableQuestions);
+        model.addAttribute("dimensions", dimensions);
+
+        List<Long> selectedQuestionIds = (quiz.getQuizQuestions() != null)
                 ? quiz.getQuizQuestions().stream().map(qq -> qq.getQuestion().getId()).toList()
                 : new ArrayList<>();
         model.addAttribute("selectedQuestionIds", selectedQuestionIds);

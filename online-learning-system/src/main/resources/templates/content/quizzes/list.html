@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/content-layout :: content-layout(~{::title}, ~{::#content-body})}">
+<head>
+    <title>Quản lý Quiz &amp; Test - OnlineLearn</title>
+</head>
+<body>
+<div id="content-body">
+
+    <!-- ── PAGE HEADER ── -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+        <div>
+            <h1 style="font-size:1.75rem; font-weight:700; margin-bottom:0.25rem;">📝 Danh sách Quiz &amp; Test</h1>
+            <p style="color:var(--text-muted); font-size:0.95rem;">Tạo, chỉnh sửa và xóa bài trắc nghiệm cho khóa học của bạn</p>
+        </div>
+        <a th:href="@{/content/quizzes/new}" class="btn btn-primary" id="btn-add-quiz">➕ Tạo Quiz mới</a>
+    </div>
+
+    <!-- ── FLASH MESSAGES ── -->
+    <div th:if="${successMessage}"
+         style="background:#dcfce7; color:#15803d; border:1px solid #86efac; padding:0.85rem 1rem; border-radius:0.5rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:0.5rem;"
+         th:text="${successMessage}"></div>
+    <div th:if="${errorMessage}"
+         style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; padding:0.85rem 1rem; border-radius:0.5rem; margin-bottom:1.5rem;"
+         th:text="${errorMessage}"></div>
+
+    <!-- ── FILTERS ── -->
+    <div style="background:#fff; padding:1.25rem; border-radius:0.5rem; border:1px solid var(--border-color); margin-bottom:1.5rem;">
+        <form th:action="@{/content/quizzes}" method="get" style="display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end;">
+            <div style="flex:2; min-width:200px;">
+                <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.3rem;">🔍 Tìm theo tên bài Quiz</label>
+                <input type="text" name="keyword" th:value="${keyword}" id="search-keyword"
+                       placeholder="Nhập tên quiz..."
+                       style="width:100%; padding:0.55rem; border:1px solid var(--border-color); border-radius:0.375rem;">
+            </div>
+            <div style="flex:1; min-width:170px;">
+                <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.3rem;">Môn học</label>
+                <select name="subjectId" id="filter-subject"
+                        style="width:100%; padding:0.55rem; border:1px solid var(--border-color); border-radius:0.375rem; background:#fff;">
+                    <option value="">-- Tất cả --</option>
+                    <option th:each="s : ${subjects}" th:value="${s.id}" th:text="${s.name}"
+                            th:selected="${s.id == selectedSubjectId}"></option>
+                </select>
+            </div>
+            <div style="min-width:170px;">
+                <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.3rem;">Loại bài thi</label>
+                <select name="quizTypeId" id="filter-type"
+                        style="width:100%; padding:0.55rem; border:1px solid var(--border-color); border-radius:0.375rem; background:#fff;">
+                    <option value="">-- Tất cả --</option>
+                    <option th:each="t : ${quizTypes}" th:value="${t.id}" th:text="${t.name}"
+                            th:selected="${t.id == selectedQuizTypeId}"></option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary" style="padding:0.55rem 1.25rem;" id="btn-filter">Lọc</button>
+            <a th:href="@{/content/quizzes}" class="btn btn-outline" style="padding:0.55rem 1rem;" id="btn-reset">Đặt lại</a>
+        </form>
+    </div>
+
+    <!-- ── TABLE ── -->
+    <div style="background:#fff; border-radius:0.5rem; border:1px solid var(--border-color); overflow:hidden;">
+        <table style="width:100%; border-collapse:collapse; text-align:left;">
+            <thead>
+            <tr style="background:#f1f5f9; border-bottom:2px solid var(--border-color); color:var(--text-muted); font-size:0.82rem; text-transform:uppercase; letter-spacing:0.04em;">
+                <th style="padding:0.85rem 1rem;">ID</th>
+                <th style="padding:0.85rem 1rem;">Tên bài Quiz</th>
+                <th style="padding:0.85rem 1rem;">Môn học</th>
+                <th style="padding:0.85rem 1rem;">Loại bài</th>
+                <th style="padding:0.85rem 1rem;">Mức độ</th>
+                <th style="padding:0.85rem 1rem; text-align:center;">⏱ Thời gian</th>
+                <th style="padding:0.85rem 1rem; text-align:center;">🎯 Điểm đạt</th>
+                <th style="padding:0.85rem 1rem; text-align:center;">❓ Số câu</th>
+                <th style="padding:0.85rem 1rem; text-align:center;">Hành động</th>
+            </tr>
+            </thead>
+            <tbody>
+            <!-- Empty state -->
+            <tr th:if="${#lists.isEmpty(quizzes)}">
+                <td colspan="9" style="padding:3rem; text-align:center; color:var(--text-muted);">
+                    <div style="font-size:2.5rem; margin-bottom:0.75rem;">📭</div>
+                    <p style="font-weight:600; margin-bottom:0.25rem;">Chưa có bài Quiz nào</p>
+                    <p style="font-size:0.9rem;">Nhấn <strong>"Tạo Quiz mới"</strong> để bắt đầu.</p>
+                </td>
+            </tr>
+
+            <!-- Data rows -->
+            <tr th:each="q : ${quizzes}"
+                style="border-bottom:1px solid var(--border-color); transition:background 0.15s;"
+                onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#fff'">
+                <td style="padding:0.8rem 1rem; font-weight:700; color:var(--text-muted); font-size:0.85rem;"
+                    th:text="'#' + ${q.id}"></td>
+                <td style="padding:0.8rem 1rem;">
+                    <a th:href="@{'/content/quizzes/' + ${q.id} + '/edit'}"
+                       style="font-weight:700; color:var(--primary-color); text-decoration:none;"
+                       th:text="${q.name}"></a>
+                </td>
+                <td style="padding:0.8rem 1rem; font-size:0.9rem;" th:text="${q.subject != null ? q.subject.name : '—'}"></td>
+                <td style="padding:0.8rem 1rem;">
+                    <span th:if="${q.quizType != null}" th:text="${q.quizType.name}"
+                          style="font-size:0.78rem; font-weight:700; padding:0.2rem 0.55rem; border-radius:0.25rem; background:#e0f2fe; color:#0369a1;"></span>
+                    <span th:unless="${q.quizType != null}" style="color:var(--text-muted);">—</span>
+                </td>
+                <td style="padding:0.8rem 1rem; font-size:0.9rem;" th:text="${q.level != null ? q.level.name : '—'}"></td>
+                <td style="padding:0.8rem 1rem; text-align:center; font-weight:600;"
+                    th:text="${q.duration + ' phút'}"></td>
+                <td style="padding:0.8rem 1rem; text-align:center; font-weight:700; color:#15803d;"
+                    th:text="${q.passRate + '%'}"></td>
+                <td style="padding:0.8rem 1rem; text-align:center; font-weight:700;"
+                    th:text="${q.quizQuestions != null ? q.quizQuestions.size() : 0}"></td>
+                <td style="padding:0.8rem 1rem; text-align:center;">
+                    <div style="display:flex; gap:0.4rem; justify-content:center;">
+                        <!-- Edit button -->
+                        <a th:href="@{'/content/quizzes/' + ${q.id} + '/edit'}"
+                           class="btn btn-outline"
+                           style="padding:0.3rem 0.75rem; font-size:0.82rem;"
+                           th:id="'btn-edit-' + ${q.id}">✏️ Sửa</a>
+
+                        <!-- Delete form -->
+                        <form th:action="@{'/content/quizzes/' + ${q.id} + '/delete'}"
+                              method="post"
+                              th:id="'form-delete-' + ${q.id}"
+                              style="display:inline;"
+                              th:onsubmit="'return confirmDelete(' + ${q.id} + ', \'' + ${#strings.escapeJava(q.name)} + '\')'">
+                            <button type="submit"
+                                    class="btn btn-outline"
+                                    style="padding:0.3rem 0.75rem; font-size:0.82rem; color:#ef4444; border-color:#fca5a5;"
+                                    th:id="'btn-delete-' + ${q.id}">🗑 Xóa</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Summary -->
+    <p th:unless="${#lists.isEmpty(quizzes)}"
+       style="margin-top:0.75rem; font-size:0.85rem; color:var(--text-muted); text-align:right;">
+        Tổng cộng <strong th:text="${#lists.size(quizzes)}"></strong> bài Quiz
+    </p>
+
+    <script>
+        function confirmDelete(id, name) {
+            return confirm('⚠️ Bạn có chắc muốn xóa quiz này?\n\nTên: ' + name + '\n\nTất cả dữ liệu liên quan (lịch sử làm bài, câu trả lời) cũng sẽ bị xóa vĩnh viễn!');
+        }
+    </script>
+</div>
+</body>
+</html>
