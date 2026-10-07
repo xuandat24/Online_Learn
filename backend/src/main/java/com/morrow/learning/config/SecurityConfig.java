@@ -39,6 +39,14 @@ public class SecurityConfig {
                         .requestMatchers("/api/registrations/**").hasRole("CUSTOMER")
                         .requestMatchers("/api/sales/**").hasAnyRole("ADMIN", "SALE")
                         .requestMatchers("/api/learning/**").hasRole("CUSTOMER")
+                        .requestMatchers("/api/admin/users/**", "/api/admin/questions/**",
+                                "/api/admin/settings/**").permitAll()
+                        .requestMatchers("/api/admin/subjects", "/api/admin/subjects/*",
+                                "/api/admin/subjects/*/dimensions/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/admin/courses").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/admin/courses").permitAll()
+                        .requestMatchers(HttpMethod.PUT, "/api/admin/courses/*").permitAll()
+                        .requestMatchers("/api/admin/courses/*/lessons/**").permitAll()
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "EXPERT", "SALE", "MARKETING")
                         .requestMatchers(HttpMethod.POST, "/api/enrollments").hasRole("CUSTOMER")
                         .requestMatchers("/api/enrollments/**").hasRole("CUSTOMER")

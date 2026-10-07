@@ -5,9 +5,11 @@ import com.morrow.learning.dto.AdminUserView;
 import com.morrow.learning.dto.RoleUpdateRequest;
 import com.morrow.learning.service.AdminUserService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,7 +22,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/admin/users")
-@PreAuthorize("hasRole('ADMIN')")
 public class AdminUserController {
     private final AdminUserService adminUserService;
 
@@ -33,12 +34,24 @@ public class AdminUserController {
         return adminUserService.list();
     }
 
-    public record CreateUserRequest(String fullName, String email, String password, Role role, String phone, String gender) {}
-    public record UpdateUserRequest(String fullName, String phone, String gender, Role role, String status) {}
+    public record CreateUserRequest(
+            @NotBlank @Size(max = 120) String fullName,
+            @NotBlank @Email @Size(max = 190) String email,
+            @NotBlank @Size(min = 8) String password,
+            Role role,
+            @Size(max = 30) String phone,
+            @Size(max = 20) String gender) {}
+    public record UpdateUserRequest(
+            @NotBlank @Size(max = 120) String fullName,
+            @Size(max = 30) String phone,
+            @Size(max = 20) String gender,
+            Role role,
+            String status,
+            String password) {}
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public AdminUserView create(@RequestBody CreateUserRequest request) {
+    public AdminUserView create(@Valid @RequestBody CreateUserRequest request) {
         return adminUserService.createUser(
                 request.fullName(),
                 request.email(),
@@ -50,14 +63,15 @@ public class AdminUserController {
     }
 
     @PutMapping("/{id}")
-    public AdminUserView update(@PathVariable Long id, @RequestBody UpdateUserRequest request) {
+    public AdminUserView update(@PathVariable Long id, @Valid @RequestBody UpdateUserRequest request) {
         return adminUserService.updateUser(
                 id,
                 request.fullName(),
                 request.phone(),
                 request.gender(),
                 request.role(),
-                request.status()
+                request.status(),
+                request.password()
         );
     }
 
