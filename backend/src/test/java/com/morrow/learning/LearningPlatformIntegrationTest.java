@@ -23,7 +23,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:morrow;MODE=MySQL;DB_CLOSE_DELAY=-1",
+        "spring.datasource.url=jdbc:h2:mem:morrow;MODE=MySQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=VALUE",
         "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.datasource.username=sa",
         "spring.datasource.password=",
@@ -128,6 +128,114 @@ class LearningPlatformIntegrationTest {
     }
 
     @Test
+    void adminCrudApisPersistDataWithoutAuthentication() throws Exception {
+        MvcResult accountResponse = mockMvc.perform(post("/api/admin/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Public Admin CRUD User","email":"public-admin-crud@example.com","password":"learning123","role":"SALE","phone":"12345","gender":"Other"}
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        long accountId = objectMapper.readTree(accountResponse.getResponse().getContentAsString()).path("id").asLong();
+        mockMvc.perform(put("/api/admin/users/{id}", accountId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Updated CRUD User","phone":"67890","gender":"Other","role":"EXPERT","status":"LOCKED","password":"updatedpass123"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fullName").value("Updated CRUD User"))
+                .andExpect(jsonPath("$.status").value("LOCKED"))
+                .andExpect(jsonPath("$.role").value("EXPERT"));
+
+        MvcResult subjectResponse = mockMvc.perform(post("/api/admin/subjects")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Public CRUD Subject","description":"Created through the admin CRUD API.","active":true}
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        long subjectId = objectMapper.readTree(subjectResponse.getResponse().getContentAsString()).path("id").asLong();
+        MvcResult dimensionResponse = mockMvc.perform(post("/api/admin/subjects/{id}/dimensions", subjectId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Public Dimension","description":"Dimension description","displayOrder":1,"active":true}
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        long dimensionId = objectMapper.readTree(dimensionResponse.getResponse().getContentAsString())
+                .path("id").asLong();
+        mockMvc.perform(get("/api/admin/subjects/{id}/dimensions", subjectId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("Public Dimension"));
+        mockMvc.perform(delete("/api/admin/subjects/{subjectId}/dimensions/{dimensionId}", subjectId, dimensionId))
+                .andExpect(status().isNoContent());
+
+        MvcResult settingResponse = mockMvc.perform(post("/api/admin/settings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"settingGroup":"PUBLIC_TEST","name":"Public setting","value":"ON","displayOrder":1,"active":true}
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        long settingId = objectMapper.readTree(settingResponse.getResponse().getContentAsString()).path("id").asLong();
+        mockMvc.perform(put("/api/admin/settings/{id}", settingId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"settingGroup":"PUBLIC_TEST","name":"Updated setting","value":"OFF","displayOrder":2,"active":false}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(false))
+                .andExpect(jsonPath("$.name").value("Updated setting"));
+
+        String coursePayload = """
+                {"title":"Public CRUD Course","description":"Course for unauthenticated admin CRUD.","category":"General","instructor":"Admin","subjectId":%d,"level":"Beginner","duration":"1h","price":10,"image":"","accent":"sage","published":true,"pricePackages":[{"name":"Monthly","price":10,"currency":"USD","accessDays":30,"published":true}]}
+                """.formatted(subjectId);
+        MvcResult courseResponse = mockMvc.perform(post("/api/admin/courses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(coursePayload))
+                .andExpect(status().isCreated())
+                .andReturn();
+        long courseId = objectMapper.readTree(courseResponse.getResponse().getContentAsString()).path("id").asLong();
+        MvcResult lessonResponse = mockMvc.perform(post("/api/admin/courses/{courseId}/lessons", courseId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"Public Lesson","summary":"Lesson summary","content":"Lesson content","videoUrl":null,"displayOrder":1,"published":false}
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        long lessonId = objectMapper.readTree(lessonResponse.getResponse().getContentAsString()).path("id").asLong();
+        mockMvc.perform(put("/api/admin/courses/{courseId}/lessons/{lessonId}", courseId, lessonId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"Public Lesson Updated","summary":"Updated summary","content":"Updated content","videoUrl":null,"displayOrder":1,"published":true}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.published").value(true));
+
+        MvcResult questionResponse = mockMvc.perform(post("/api/admin/questions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"subject":"Public CRUD Subject","lessonTitle":"Public Lesson","level":"EASY","prompt":"Which option is correct?","optionsJson":"[\\"First\\",\\"Second\\"]","correctOptionIndex":1,"explanation":"Second is correct.","status":"ACTIVE"}
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        long questionId = objectMapper.readTree(questionResponse.getResponse().getContentAsString())
+                .path("id").asLong();
+        mockMvc.perform(get("/api/admin/questions").param("search", "which option").param("level", "EASY"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].prompt").value("Which option is correct?"));
+        mockMvc.perform(put("/api/admin/questions/{id}", questionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"subject":"Public CRUD Subject","lessonTitle":"Public Lesson","level":"EASY","prompt":"Which option is correct?","optionsJson":"[\\"First\\",\\"Second\\"]","correctOptionIndex":1,"explanation":"Second is correct.","status":"INACTIVE"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("INACTIVE"));
+        mockMvc.perform(delete("/api/admin/questions/{id}", questionId))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
     void customerCanEditAndCancelOnlyOwnSubmittedRegistration() throws Exception {
         MvcResult registration = mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -229,7 +337,7 @@ class LearningPlatformIntegrationTest {
     }
 
     @Test
-    void onlyAdminCanAssignAnInternalRole() throws Exception {
+    void adminCrudRoleChangesAreAccessibleWithoutSigningIn() throws Exception {
         MvcResult registration = mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -252,10 +360,10 @@ class LearningPlatformIntegrationTest {
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
                                 "/api/admin/users/{id}/role", customerId)
-                        .header("Authorization", "Bearer " + customerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"role\":\"EXPERT\"}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("EXPERT"));
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(
                                 "/api/admin/users/{id}/role", customerId)
@@ -304,10 +412,9 @@ class LearningPlatformIntegrationTest {
                 {"title":"Expert subject course","description":"A course managed by an assigned expert.","category":"Design","instructor":"Assigned Expert","subjectId":%d,"level":"Beginner","duration":"2h","price":25,"image":"","accent":"sage","published":true,"pricePackages":[{"name":"Thirty day access","price":25,"currency":"USD","accessDays":30,"published":true}]}
                 """.formatted(subjectId);
         mockMvc.perform(post("/api/admin/courses")
-                        .header("Authorization", "Bearer " + expertToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(coursePayload))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isCreated());
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(
                                 "/api/admin/subjects/{subjectId}/experts/{expertId}", subjectId, expertId)

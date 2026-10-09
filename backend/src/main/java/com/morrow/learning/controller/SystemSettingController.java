@@ -38,6 +38,7 @@ public class SystemSettingController {
     public SystemSetting update(@PathVariable Long id, @RequestBody SystemSetting updated) {
         var setting = settingRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Setting not found"));
+        setting.setSettingGroup(updated.getSettingGroup());
         setting.setName(updated.getName());
         setting.setValue(updated.getValue());
         setting.setDisplayOrder(updated.getDisplayOrder());
