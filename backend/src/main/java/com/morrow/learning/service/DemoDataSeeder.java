@@ -105,7 +105,8 @@ public class DemoDataSeeder {
             userRepository.save(new User(adminFullName, adminEmail, passwordEncoder.encode(adminPassword), Role.ADMIN, "0911000111", "Nam"));
         }
 
-        // Seed Role Demo Accounts for Sale, Marketing, Expert, Customer
+        // Seed Role Demo Accounts for Admin, Sale, Marketing, Expert, Customer
+        seedUserIfNotExists("Quản trị viên Hệ thống", "admin@example.com", "password123", Role.ADMIN, "0911000111", "Nam");
         seedUserIfNotExists("Nguyễn Văn Sale", "sale@example.com", "password123", Role.SALE, "0922000222", "Nam");
         seedUserIfNotExists("Lê Thị Marketing", "marketing@example.com", "password123", Role.MARKETING, "0933000333", "Nữ");
         seedUserIfNotExists("Alex Tran (Chuyên gia)", "expert@example.com", "password123", Role.EXPERT, "0944000444", "Nam");

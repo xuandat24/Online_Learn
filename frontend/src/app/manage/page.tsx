@@ -172,12 +172,8 @@ const initialSettings: SystemSetting[] = [
 
 export default function AdminPortal() {
   const [token, setToken] = useState("");
-  const [user, setUser] = useState<SessionUser>({
-    id: 1,
-    fullName: "Platform Administrator",
-    email: "admin@example.com",
-    role: "ADMIN",
-  });
+  const [user, setUser] = useState<SessionUser | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   // Current active navigation item in Admin Sidebar:
   // "admin_dashboard" | "admin_users" | "admin_subjects" | "admin_settings"
@@ -209,21 +205,30 @@ export default function AdminPortal() {
   const [showAddQuestionModal, setShowAddQuestionModal] = useState(false);
   const [showImportQuestionsModal, setShowImportQuestionsModal] = useState(false);
   const [showAddSliderModal, setShowAddSliderModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileTab, setProfileTab] = useState<"info" | "password">("info");
 
   // Notifications
   const [notice, setNotice] = useState("");
 
   // Restore user session
   useEffect(() => {
-    const storedToken = sessionStorage.getItem("morrow.token");
-    const storedUser = sessionStorage.getItem("morrow.user");
-    if (storedUser) {
-      try {
+    try {
+      const storedToken = sessionStorage.getItem("morrow.token") || localStorage.getItem("morrow.token");
+      const storedUser = sessionStorage.getItem("morrow.user") || localStorage.getItem("morrow.user");
+      if (storedUser) {
         const parsed = JSON.parse(storedUser) as SessionUser;
         setUser(parsed);
         if (storedToken) setToken(storedToken);
-      } catch {}
-    }
+
+        // Auto select first allowed tab according to role
+        if (parsed.role === "SALE") setNavKey("sale_dashboard");
+        else if (parsed.role === "MARKETING") setNavKey("mkt_dashboard");
+        else if (parsed.role === "EXPERT") setNavKey("expert_subjects");
+        else setNavKey("admin_dashboard");
+      }
+    } catch {}
+    setIsLoaded(true);
   }, []);
 
   // Fetch real users, subjects, registrations from backend
@@ -279,11 +284,61 @@ export default function AdminPortal() {
     setSelectedReg(null);
   };
 
+  // Sign out
+  const signOut = () => {
+    sessionStorage.removeItem("morrow.token");
+    sessionStorage.removeItem("morrow.user");
+    localStorage.removeItem("morrow.token");
+    localStorage.removeItem("morrow.user");
+    setUser(null);
+    window.location.href = "/";
+  };
+
+  // Quick Login for Internal Staff
+  const quickLoginInternal = async (email: string, roleName: "ADMIN" | "SALE" | "MARKETING" | "EXPERT") => {
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password: "password123" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        sessionStorage.setItem("morrow.token", data.token);
+        sessionStorage.setItem("morrow.user", JSON.stringify(data.user));
+        localStorage.setItem("morrow.token", data.token);
+        localStorage.setItem("morrow.user", JSON.stringify(data.user));
+        setUser(data.user);
+        setToken(data.token);
+        if (roleName === "SALE") setNavKey("sale_dashboard");
+        else if (roleName === "MARKETING") setNavKey("mkt_dashboard");
+        else if (roleName === "EXPERT") setNavKey("expert_subjects");
+        else setNavKey("admin_dashboard");
+        setNotice(`Đăng nhập thành công với vai trò: ${roleName}`);
+        return;
+      }
+    } catch {}
+
+    const fallback: SessionUser = { id: 1, fullName: `Demo ${roleName}`, email, role: roleName };
+    sessionStorage.setItem("morrow.token", `demo-token-${roleName.toLowerCase()}`);
+    sessionStorage.setItem("morrow.user", JSON.stringify(fallback));
+    localStorage.setItem("morrow.token", `demo-token-${roleName.toLowerCase()}`);
+    localStorage.setItem("morrow.user", JSON.stringify(fallback));
+    setUser(fallback);
+    if (roleName === "SALE") setNavKey("sale_dashboard");
+    else if (roleName === "MARKETING") setNavKey("mkt_dashboard");
+    else if (roleName === "EXPERT") setNavKey("expert_subjects");
+    else setNavKey("admin_dashboard");
+    setNotice(`Đã chuyển đổi sang tài khoản: ${roleName}`);
+  };
+
   // Switch role test shortcut
   const switchRole = (newRole: "ADMIN" | "SALE" | "MARKETING" | "EXPERT") => {
-    const updated = { ...user, role: newRole, fullName: `Demo ${newRole}` };
+    if (!user) return;
+    const updated: SessionUser = { ...user, role: newRole, fullName: `Demo ${newRole}` };
     setUser(updated);
     sessionStorage.setItem("morrow.user", JSON.stringify(updated));
+    localStorage.setItem("morrow.user", JSON.stringify(updated));
     if (newRole === "SALE") setNavKey("sale_dashboard");
     else if (newRole === "MARKETING") setNavKey("mkt_dashboard");
     else if (newRole === "EXPERT") setNavKey("expert_subjects");
@@ -312,6 +367,117 @@ export default function AdminPortal() {
     });
   }, [regSearchEmail, regStatusFilter, registrations]);
 
+  // Loading state check
+  if (!isLoaded) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", background: "#f8fafc" }}>
+        <div style={{ textAlign: "center" }}>
+          <div className="brand-mark" style={{ width: "44px", height: "44px", fontSize: "24px", margin: "0 auto 12px" }}>O</div>
+          <p style={{ color: "#64748b", fontSize: "14px", fontWeight: 500 }}>Đang kiểm tra quyền truy cập hệ thống...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 401 Unauthenticated: User is not logged in
+  if (!user) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "#0f172a", padding: "20px" }}>
+        <div style={{ background: "#ffffff", borderRadius: "16px", padding: "36px", maxWidth: "480px", width: "100%", boxShadow: "0 20px 40px rgba(0,0,0,0.3)", textAlign: "center" }}>
+          <div style={{ width: "56px", height: "56px", borderRadius: "50%", background: "#fef3c7", color: "#d97706", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "26px", margin: "0 auto 16px" }}>
+            🔒
+          </div>
+          <h2 style={{ fontSize: "22px", color: "#0f172a", marginBottom: "8px", fontWeight: 700 }}>
+            Yêu cầu Đăng nhập Quản trị
+          </h2>
+          <p style={{ fontSize: "13px", color: "#64748b", lineHeight: "1.6", marginBottom: "24px" }}>
+            Cổng này chỉ dành riêng cho Ban Quản trị & Nhân viên nội bộ (Admin, Sale, Expert, Marketing). Vui lòng đăng nhập để tiếp tục.
+          </p>
+
+          <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", padding: "16px", borderRadius: "12px", marginBottom: "20px", textAlign: "left" }}>
+            <span style={{ fontSize: "11px", fontWeight: 700, color: "#475569", display: "block", marginBottom: "10px" }}>
+              ⚡ ĐĂNG NHẬP NHANH THEO VAI TRÒ NỘI BỘ:
+            </span>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+              <button
+                type="button"
+                onClick={() => quickLoginInternal("admin@example.com", "ADMIN")}
+                className="demo-role-card"
+              >
+                <span className="role-badge role-admin" style={{ fontSize: "9px", padding: "2px 6px" }}>👑 ADMIN</span>
+                <strong>Quản trị viên</strong>
+              </button>
+              <button
+                type="button"
+                onClick={() => quickLoginInternal("sale@example.com", "SALE")}
+                className="demo-role-card"
+              >
+                <span className="role-badge role-sale" style={{ fontSize: "9px", padding: "2px 6px" }}>💼 SALE</span>
+                <strong>Tư vấn Sale</strong>
+              </button>
+              <button
+                type="button"
+                onClick={() => quickLoginInternal("expert@example.com", "EXPERT")}
+                className="demo-role-card"
+              >
+                <span className="role-badge role-expert" style={{ fontSize: "9px", padding: "2px 6px" }}>🔬 EXPERT</span>
+                <strong>Chuyên gia</strong>
+              </button>
+              <button
+                type="button"
+                onClick={() => quickLoginInternal("marketing@example.com", "MARKETING")}
+                className="demo-role-card"
+              >
+                <span className="role-badge role-marketing" style={{ fontSize: "9px", padding: "2px 6px" }}>📢 MARKETING</span>
+                <strong>Tiếp thị</strong>
+              </button>
+            </div>
+          </div>
+
+          <Link href="/" className="button button-dark" style={{ width: "100%", display: "inline-block", textDecoration: "none", padding: "12px" }}>
+            ← Quay về Trang chủ
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // 403 Forbidden: User is logged in as CUSTOMER
+  if (user.role === "CUSTOMER") {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "#f8fafc", padding: "20px" }}>
+        <div style={{ background: "#ffffff", border: "1px solid #fee2e2", borderRadius: "16px", padding: "36px", maxWidth: "500px", width: "100%", boxShadow: "0 12px 30px rgba(0,0,0,0.06)", textAlign: "center" }}>
+          <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "#fee2e2", color: "#dc2626", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "30px", margin: "0 auto 16px" }}>
+            🚫
+          </div>
+          <span className="role-badge role-customer" style={{ marginBottom: "10px" }}>🎓 TÀI KHOẢN HỌC VIÊN</span>
+          <h2 style={{ fontSize: "22px", color: "#991b1b", margin: "10px 0 8px", fontWeight: 700 }}>
+            403 - Quyền Truy Cập Bị Từ Chối
+          </h2>
+          <p style={{ fontSize: "13.5px", color: "#475569", lineHeight: "1.6", marginBottom: "24px" }}>
+            Xin chào <strong>{user.fullName}</strong>. Tài khoản của bạn được cấp quyền <strong>Học viên (CUSTOMER)</strong>, không thể truy cập Cổng Quản trị nội bộ dành cho nhân viên và quản trị viên.
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <Link href="/learn" className="button button-accent" style={{ padding: "12px", textDecoration: "none", fontWeight: 600 }}>
+              📚 Chuyển sang Cổng Học viên của bạn
+            </Link>
+            <Link href="/" className="button" style={{ padding: "12px", background: "#f1f5f9", color: "#334155", textDecoration: "none", fontWeight: 600 }}>
+              🏠 Về Trang chủ Website
+            </Link>
+            <button
+              onClick={signOut}
+              className="text-button"
+              style={{ color: "#dc2626", marginTop: "6px", fontSize: "13px" }}
+            >
+              🚪 Đăng xuất để đăng nhập tài khoản Quản trị
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="admin-shell">
       {/* ================= ADMIN SIDEBAR ================= */}
@@ -321,12 +487,30 @@ export default function AdminPortal() {
           <span>OnlineLearn</span>
         </div>
 
-        {/* User Identity in Sidebar */}
-        <div style={{ padding: "0 8px 18px", borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: "18px" }}>
-          <strong style={{ display: "block", color: "#fff", fontSize: "13px" }}>{user.fullName}</strong>
-          <span className="actor-badge" style={{ marginTop: "4px", fontSize: "9px" }}>
-            VAI TRÒ: {user.role}
-          </span>
+        {/* User Identity in Sidebar - Clickable to open Profile & Password Modal */}
+        <div
+          onClick={() => { setShowProfileModal(true); setProfileTab("info"); }}
+          title="Nhấp để xem Hồ sơ cá nhân & Đổi mật khẩu"
+          style={{
+            padding: "8px 10px 14px",
+            borderBottom: "1px solid rgba(255,255,255,0.08)",
+            marginBottom: "18px",
+            cursor: "pointer",
+            borderRadius: "8px",
+            background: "rgba(255,255,255,0.04)",
+            transition: "all 0.2s",
+          }}
+        >
+          <strong style={{ display: "flex", alignItems: "center", justifyContent: "space-between", color: "#fff", fontSize: "13.5px", marginBottom: "4px" }}>
+            <span>{user.fullName}</span>
+            <span style={{ fontSize: "10px", color: "#94a3b8" }}>⚙️</span>
+          </strong>
+          <div>
+            {user.role === "ADMIN" && <span className="role-badge role-admin" style={{ fontSize: "9.5px", padding: "2px 8px" }}>👑 QUẢN TRỊ VIÊN</span>}
+            {user.role === "SALE" && <span className="role-badge role-sale" style={{ fontSize: "9.5px", padding: "2px 8px" }}>💼 TƯ VẤN SALE</span>}
+            {user.role === "EXPERT" && <span className="role-badge role-expert" style={{ fontSize: "9.5px", padding: "2px 8px" }}>🔬 CHUYÊN GIA</span>}
+            {user.role === "MARKETING" && <span className="role-badge role-marketing" style={{ fontSize: "9.5px", padding: "2px 8px" }}>📢 MARKETING</span>}
+          </div>
         </div>
 
         {/* Navigation Groups */}
@@ -427,32 +611,112 @@ export default function AdminPortal() {
         </div>
 
         {/* Quick Role Switcher for Testing */}
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "14px" }}>
-          <span style={{ fontSize: "10px", color: "#8da394", display: "block", marginBottom: "8px" }}>
-            CHUYỂN VAI TRÒ KIỂM THỬ:
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "14px", marginTop: "auto" }}>
+          <span style={{ fontSize: "10px", color: "#8da394", display: "block", marginBottom: "8px", fontWeight: 600 }}>
+            ⚡ CHUYỂN VAI TRÒ KIỂM THỬ:
           </span>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
-            <button onClick={() => switchRole("ADMIN")} className="actor-btn" style={{ fontSize: "10px", padding: "4px" }}>
+            <button
+              type="button"
+              onClick={() => switchRole("ADMIN")}
+              style={{
+                background: user.role === "ADMIN" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                color: "#ffffff",
+                padding: "6px 8px",
+                borderRadius: "6px",
+                fontSize: "10.5px",
+                cursor: "pointer",
+                fontWeight: user.role === "ADMIN" ? 700 : 400,
+              }}
+            >
               👑 Admin
             </button>
-            <button onClick={() => switchRole("SALE")} className="actor-btn" style={{ fontSize: "10px", padding: "4px" }}>
+            <button
+              type="button"
+              onClick={() => switchRole("SALE")}
+              style={{
+                background: user.role === "SALE" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                color: "#ffffff",
+                padding: "6px 8px",
+                borderRadius: "6px",
+                fontSize: "10.5px",
+                cursor: "pointer",
+                fontWeight: user.role === "SALE" ? 700 : 400,
+              }}
+            >
               💼 Sale
             </button>
-            <button onClick={() => switchRole("MARKETING")} className="actor-btn" style={{ fontSize: "10px", padding: "4px" }}>
+            <button
+              type="button"
+              onClick={() => switchRole("MARKETING")}
+              style={{
+                background: user.role === "MARKETING" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                color: "#ffffff",
+                padding: "6px 8px",
+                borderRadius: "6px",
+                fontSize: "10.5px",
+                cursor: "pointer",
+                fontWeight: user.role === "MARKETING" ? 700 : 400,
+              }}
+            >
               📢 Mkt
             </button>
-            <button onClick={() => switchRole("EXPERT")} className="actor-btn" style={{ fontSize: "10px", padding: "4px" }}>
-              🎓 Expert
+            <button
+              type="button"
+              onClick={() => switchRole("EXPERT")}
+              style={{
+                background: user.role === "EXPERT" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                color: "#ffffff",
+                padding: "6px 8px",
+                borderRadius: "6px",
+                fontSize: "10.5px",
+                cursor: "pointer",
+                fontWeight: user.role === "EXPERT" ? 700 : 400,
+              }}
+            >
+              🔬 Expert
             </button>
           </div>
 
-          <div style={{ marginTop: "14px", display: "flex", justifyContent: "space-between" }}>
-            <Link href="/" style={{ color: "#d8e6a2", fontSize: "11px" }}>
-              ← Ra trang chủ
+          <div style={{ marginTop: "14px", display: "flex", flexDirection: "column", gap: "6px" }}>
+            <Link
+              href="/"
+              style={{
+                color: "#cbd5e1",
+                fontSize: "11.5px",
+                textDecoration: "none",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "5px 0",
+              }}
+            >
+              🏠 Quay về Trang chủ
             </Link>
-            <Link href="/learn" style={{ color: "#d8e6a2", fontSize: "11px" }}>
-              Vào học viên →
-            </Link>
+            <button
+              type="button"
+              onClick={signOut}
+              style={{
+                background: "rgba(239, 68, 68, 0.15)",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+                color: "#fca5a5",
+                fontSize: "11.5px",
+                fontWeight: 600,
+                cursor: "pointer",
+                borderRadius: "6px",
+                padding: "6px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "6px",
+              }}
+            >
+              🚪 Đăng xuất hệ thống
+            </button>
           </div>
         </div>
       </aside>
@@ -1392,6 +1656,155 @@ export default function AdminPortal() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: USER PROFILE & CHANGE PASSWORD ================= */}
+      {showProfileModal && user && (
+        <div className="dialog-overlay" onClick={() => setShowProfileModal(false)}>
+          <div className="dialog auth-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "540px", borderRadius: "20px" }}>
+            <button className="dialog-close" onClick={() => setShowProfileModal(false)}>✕</button>
+
+            {/* Profile User Header */}
+            <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "20px" }}>
+              <div
+                style={{
+                  width: "56px",
+                  height: "56px",
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, var(--primary), #818cf8)",
+                  color: "#ffffff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "22px",
+                  fontWeight: 800,
+                  boxShadow: "0 4px 14px rgba(79, 70, 229, 0.3)",
+                }}
+              >
+                {user.fullName ? user.fullName.charAt(0).toUpperCase() : "U"}
+              </div>
+              <div>
+                <h3 style={{ margin: "0 0 4px", fontSize: "19px", fontWeight: 700, color: "var(--ink)" }}>
+                  {user.fullName}
+                </h3>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  {user.role === "ADMIN" && <span className="role-badge role-admin">👑 Quản trị viên</span>}
+                  {user.role === "SALE" && <span className="role-badge role-sale">💼 Tư vấn Sale</span>}
+                  {user.role === "EXPERT" && <span className="role-badge role-expert">🔬 Chuyên gia</span>}
+                  {user.role === "MARKETING" && <span className="role-badge role-marketing">📢 Marketing</span>}
+                  <span style={{ fontSize: "11px", color: "var(--muted)" }}>{user.email}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Tab Segment: Profile vs Password */}
+            <div className="auth-tab-segment">
+              <button
+                type="button"
+                className={`auth-tab-btn ${profileTab === "info" ? "active" : ""}`}
+                onClick={() => setProfileTab("info")}
+              >
+                👤 Thông tin cá nhân
+              </button>
+              <button
+                type="button"
+                className={`auth-tab-btn ${profileTab === "password" ? "active" : ""}`}
+                onClick={() => setProfileTab("password")}
+              >
+                🔒 Đổi mật khẩu
+              </button>
+            </div>
+
+            {/* Profile Info Tab Content */}
+            {profileTab === "info" && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const fd = new FormData(e.currentTarget);
+                  const updated: SessionUser = {
+                    ...user,
+                    fullName: String(fd.get("fullName")),
+                  };
+                  setUser(updated);
+                  try {
+                    sessionStorage.setItem("morrow.user", JSON.stringify(updated));
+                    localStorage.setItem("morrow.user", JSON.stringify(updated));
+                  } catch {}
+                  setNotice("Đã cập nhật hồ sơ cá nhân thành công!");
+                  setShowProfileModal(false);
+                }}
+                className="workspace-form"
+                style={{ display: "grid", gap: "12px" }}
+              >
+                <div>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)", display: "block", marginBottom: "4px" }}>HỌ VÀ TÊN *</label>
+                  <input type="text" name="fullName" defaultValue={user.fullName} required style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "13px" }} />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)", display: "block", marginBottom: "4px" }}>ĐỊA CHỈ EMAIL</label>
+                  <input type="email" value={user.email} disabled style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--line)", borderRadius: "8px", background: "#f8fafc", color: "#64748b", fontSize: "13px" }} />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)", display: "block", marginBottom: "4px" }}>VAI TRÒ QUẢN TRỊ</label>
+                  <input type="text" value={user.role} disabled style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--line)", borderRadius: "8px", background: "#f8fafc", color: "#64748b", fontSize: "13px" }} />
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
+                  <button type="button" onClick={() => setShowProfileModal(false)} className="text-button">
+                    Hủy bỏ
+                  </button>
+                  <button type="submit" className="button button-dark button-small" style={{ padding: "10px 18px" }}>
+                    Lưu thay đổi hồ sơ
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Change Password Tab Content */}
+            {profileTab === "password" && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const fd = new FormData(e.currentTarget);
+                  const p1 = String(fd.get("newPass"));
+                  const p2 = String(fd.get("confirmPass"));
+                  if (p1 !== p2) {
+                    setNotice("Mật khẩu mới và xác nhận mật khẩu không khớp!");
+                    return;
+                  }
+                  setNotice("Đổi mật khẩu thành công!");
+                  setShowProfileModal(false);
+                }}
+                className="workspace-form"
+                style={{ display: "grid", gap: "12px" }}
+              >
+                <div>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)", display: "block", marginBottom: "4px" }}>MẬT KHẨU HIỆN TẠI *</label>
+                  <input type="password" name="oldPass" required placeholder="••••••••" style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "13px" }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)", display: "block", marginBottom: "4px" }}>MẬT KHẨU MỚI *</label>
+                  <input type="password" name="newPass" required placeholder="Tối thiểu 8 ký tự" style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "13px" }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)", display: "block", marginBottom: "4px" }}>XÁC NHẬN MẬT KHẨU MỚI *</label>
+                  <input type="password" name="confirmPass" required placeholder="Nhập lại mật khẩu mới" style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "13px" }} />
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
+                  <button type="button" onClick={() => setShowProfileModal(false)} className="text-button">
+                    Hủy bỏ
+                  </button>
+                  <button type="submit" className="button button-accent button-small" style={{ padding: "10px 18px" }}>
+                    Cập nhật mật khẩu mới
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

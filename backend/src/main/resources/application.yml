@@ -1,13 +1,13 @@
 server:
-  port: ${PORT:8080}
+  port: ${PORT:8081}
 
 spring:
   application:
     name: morrow-learning-platform
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/morrow?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
-    username: ${DB_USERNAME:morrow}
-    password: ${DB_PASSWORD:morrow}
+    url: ${DB_URL:jdbc:h2:file:./data/morrow;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
   jpa:
     hibernate:
       ddl-auto: update
