@@ -6,7 +6,6 @@ import com.morrow.learning.dto.QuizView;
 import com.morrow.learning.dto.QuizWriteRequest;
 import com.morrow.learning.service.CourseContentService;
 import jakarta.validation.Valid;
-import java.security.Principal;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -31,50 +30,54 @@ public class AdminCourseContentController {
     }
 
     @GetMapping("/lessons")
-    public List<LessonView> lessons(Principal principal, @PathVariable Long courseId) {
-        return contentService.manageLessons(courseId, principal.getName());
+    @PreAuthorize("permitAll()")
+    public List<LessonView> lessons(@PathVariable Long courseId) {
+        return contentService.manageLessons(courseId);
     }
 
     @PostMapping("/lessons")
+    @PreAuthorize("permitAll()")
     @ResponseStatus(HttpStatus.CREATED)
-    public LessonView createLesson(Principal principal, @PathVariable Long courseId,
+    public LessonView createLesson(@PathVariable Long courseId,
                                    @Valid @RequestBody LessonWriteRequest request) {
-        return contentService.createLesson(courseId, principal.getName(), request);
+        return contentService.createLesson(courseId, request);
     }
 
     @PutMapping("/lessons/{lessonId}")
-    public LessonView updateLesson(Principal principal, @PathVariable Long courseId, @PathVariable Long lessonId,
+    @PreAuthorize("permitAll()")
+    public LessonView updateLesson(@PathVariable Long courseId, @PathVariable Long lessonId,
                                    @Valid @RequestBody LessonWriteRequest request) {
-        return contentService.updateLesson(courseId, lessonId, principal.getName(), request);
+        return contentService.updateLesson(courseId, lessonId, request);
     }
 
     @DeleteMapping("/lessons/{lessonId}")
+    @PreAuthorize("permitAll()")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteLesson(Principal principal, @PathVariable Long courseId, @PathVariable Long lessonId) {
-        contentService.deleteLesson(courseId, lessonId, principal.getName());
+    public void deleteLesson(@PathVariable Long courseId, @PathVariable Long lessonId) {
+        contentService.deleteLesson(courseId, lessonId);
     }
 
     @GetMapping("/quizzes")
-    public List<QuizView> quizzes(Principal principal, @PathVariable Long courseId) {
-        return contentService.manageQuizzes(courseId, principal.getName());
+    public List<QuizView> quizzes(@PathVariable Long courseId) {
+        return contentService.manageQuizzes(courseId);
     }
 
     @PostMapping("/quizzes")
     @ResponseStatus(HttpStatus.CREATED)
-    public QuizView createQuiz(Principal principal, @PathVariable Long courseId,
+    public QuizView createQuiz(@PathVariable Long courseId,
                                @Valid @RequestBody QuizWriteRequest request) {
-        return contentService.createQuiz(courseId, principal.getName(), request);
+        return contentService.createQuiz(courseId, request);
     }
 
     @PutMapping("/quizzes/{quizId}")
-    public QuizView updateQuiz(Principal principal, @PathVariable Long courseId, @PathVariable Long quizId,
+    public QuizView updateQuiz(@PathVariable Long courseId, @PathVariable Long quizId,
                                @Valid @RequestBody QuizWriteRequest request) {
-        return contentService.updateQuiz(courseId, quizId, principal.getName(), request);
+        return contentService.updateQuiz(courseId, quizId, request);
     }
 
     @DeleteMapping("/quizzes/{quizId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteQuiz(Principal principal, @PathVariable Long courseId, @PathVariable Long quizId) {
-        contentService.deleteQuiz(courseId, quizId, principal.getName());
+    public void deleteQuiz(@PathVariable Long courseId, @PathVariable Long quizId) {
+        contentService.deleteQuiz(courseId, quizId);
     }
 }

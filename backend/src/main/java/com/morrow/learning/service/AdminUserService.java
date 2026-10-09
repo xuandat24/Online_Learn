@@ -23,7 +23,7 @@ public class AdminUserService {
 
     @Transactional(readOnly = true)
     public List<AdminUserView> list() {
-        return userRepository.findAllByOrderByCreatedAtDesc().stream().map(AdminUserView::from).toList();
+        return userRepository.findAllByOrderByIdAsc().stream().map(AdminUserView::from).toList();
     }
 
     @Transactional
@@ -39,6 +39,9 @@ public class AdminUserService {
 
     @Transactional
     public AdminUserView createUser(String fullName, String email, String password, Role role, String phone, String gender) {
+        if (role == Role.GUEST) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Registered accounts cannot use the GUEST role");
+        }
         if (userRepository.existsByEmailIgnoreCase(email)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
         }
@@ -47,14 +50,29 @@ public class AdminUserService {
     }
 
     @Transactional
-    public AdminUserView updateUser(Long id, String fullName, String phone, String gender, Role role, String status) {
+    public AdminUserView updateUser(Long id, String fullName, String phone, String gender, Role role,
+                                    String status, String password) {
+        if (role == Role.GUEST) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Registered accounts cannot use the GUEST role");
+        }
         var user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         if (fullName != null && !fullName.isBlank()) user.setFullName(fullName);
         if (phone != null) user.setPhone(phone);
         if (gender != null) user.setGender(gender);
         if (role != null) user.updateRole(role);
-        if (status != null) user.setStatus(status);
+        if (status != null) {
+            if (!status.equals("ACTIVE") && !status.equals("LOCKED")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status must be ACTIVE or LOCKED");
+            }
+            user.setStatus(status);
+        }
+        if (password != null && !password.isBlank()) {
+            if (password.length() < 8) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password must contain at least 8 characters");
+            }
+            user.setPasswordHash(passwordEncoder.encode(password));
+        }
         return AdminUserView.from(userRepository.save(user));
     }
 }
