@@ -1,110 +1,138 @@
 <!-- Thư mục: src/main/resources/templates/content/lesson-details.html -->
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org"
-      th:replace="~{fragments/content-layout :: content-layout(~{::title}, ~{::#content-body})}">
+      th:replace="~{layout/base :: base-layout(~{::title}, ~{::#content-body})}">
 <head>
-    <title th:text="${lesson.id != null ? 'Chỉnh sửa bài học' : 'Thêm bài học mới'}">Chi tiết bài học</title>
+    <title th:text="${lessonForm.id != null ? 'Chỉnh sửa bài học: ' + lessonForm.name : 'Thêm bài học mới'}">Chi tiết bài học</title>
 </head>
 <body>
     <div id="content-body">
-        <div style="margin-bottom: 1.5rem;">
-            <a th:href="@{'/content/subjects/' + ${subject.id} + '/lessons'}" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">
+        <div class="mb-4">
+            <a th:href="@{'/content/subjects/' + ${subject.id} + '/lessons'}" class="text-decoration-none text-muted small">
                 ← Quay lại danh sách bài học môn: <span th:text="${subject.name}">Java Core</span>
             </a>
-            <h1 style="font-size: 1.75rem; font-weight: 700; margin-top: 0.25rem;"
-                th:text="${lesson.id != null ? 'Chỉnh sửa bài học: ' + lesson.name : 'Thêm bài học mới'}">
+            <h1 class="h3 fw-bold mt-1 mb-0"
+                th:text="${lessonForm.id != null ? '✏️ Chỉnh sửa bài học: ' + lessonForm.name : '➕ Thêm bài học mới'}">
                 Thêm bài học mới
             </h1>
         </div>
 
-        <div style="background: #ffffff; border-radius: 0.5rem; border: 1px solid var(--border-color); padding: 2rem; max-width: 800px;">
-            <form th:action="@{/content/lessons/save}" th:object="${lesson}" method="post">
-                <input type="hidden" th:field="*{id}">
-                <input type="hidden" name="subjectId" th:value="${subject.id}">
+        <div class="card shadow-sm border-0" style="max-width: 850px;">
+            <div class="card-body p-4">
+                <form th:action="${lessonForm.id != null ? '/content/lessons/' + lessonForm.id : '/content/lessons/new'}"
+                      th:object="${lessonForm}" method="post" id="lesson-form">
+                    <input type="hidden" th:field="*{id}">
+                    <input type="hidden" th:field="*{subjectId}">
 
-                <!-- Phân loại Type (Conditional UI) -->
-                <div style="margin-bottom: 1.5rem; padding: 1rem; background: #f8fafc; border-radius: 0.375rem; border: 1px solid var(--border-color);">
-                    <label style="display: block; font-weight: 700; margin-bottom: 0.5rem; font-size: 0.95rem;">Phân loại bài học (Lesson Type) *</label>
-                    <div style="display: flex; gap: 1.5rem;">
-                        <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
-                            <input type="radio" name="type" value="SUBJECT_TOPIC" th:checked="${lesson.type?.name() == 'SUBJECT_TOPIC'}" onchange="toggleLessonType('SUBJECT_TOPIC')">
-                            <strong>📁 Chương mục (Topic)</strong>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
-                            <input type="radio" name="type" value="LESSON" th:checked="${lesson.type == null || lesson.type?.name() == 'LESSON'}" onchange="toggleLessonType('LESSON')">
-                            <strong>📄 Bài giảng (Video/HTML)</strong>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
-                            <input type="radio" name="type" value="QUIZ" th:checked="${lesson.type?.name() == 'QUIZ'}" onchange="toggleLessonType('QUIZ')">
-                            <strong>📝 Bài kiểm tra (Quiz)</strong>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Tên bài học -->
-                <div style="margin-bottom: 1.25rem;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Tên bài học / Tiêu đề chương *</label>
-                    <input type="text" th:field="*{name}" required placeholder="VD: Bài 1: Cài đặt môi trường" style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
-                </div>
-
-                <!-- Thứ tự & Chương mục cha & Trạng thái -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
-                    <div>
-                        <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Thứ tự hiển thị *</label>
-                        <input type="number" th:field="*{orderNum}" min="1" required style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
+                    <!-- Subject Info Header -->
+                    <div class="p-3 bg-light rounded border mb-4 d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="text-muted small">Môn học đang thao tác:</span>
+                            <div class="fw-bold" th:text="${subject.name}">Java Core cơ bản</div>
+                        </div>
+                        <span class="badge bg-secondary" th:text="${subject.category != null ? subject.category.name : ''}">Lập trình</span>
                     </div>
 
-                    <div>
-                        <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Chương mục cha (Parent Topic)</label>
-                        <select name="parentId" style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem; background: #ffffff;">
-                            <option value="">-- Không có (Chương gốc) --</option>
-                            <option th:each="pt : ${parentTopics}" th:value="${pt.id}" th:text="${pt.name}" th:selected="${lesson.parentLesson != null && lesson.parentLesson.id == pt.id}"></option>
-                        </select>
+                    <!-- Phân loại Type (Conditional Selector) -->
+                    <div class="mb-4 p-3 bg-light rounded border">
+                        <label class="form-label fw-bold mb-2">Phân loại bài học (Lesson Type) *</label>
+                        <div class="d-flex gap-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="type" id="typeTopic" value="SUBJECT_TOPIC"
+                                       th:checked="${lessonForm.type?.name() == 'SUBJECT_TOPIC'}" onchange="toggleLessonType('SUBJECT_TOPIC')">
+                                <label class="form-check-label fw-semibold" for="typeTopic">
+                                    📁 Chương mục (Topic)
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="type" id="typeLesson" value="LESSON"
+                                       th:checked="${lessonForm.type == null || lessonForm.type?.name() == 'LESSON'}" onchange="toggleLessonType('LESSON')">
+                                <label class="form-check-label fw-semibold" for="typeLesson">
+                                    📄 Bài giảng (Video/HTML)
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="type" id="typeQuiz" value="QUIZ"
+                                       th:checked="${lessonForm.type?.name() == 'QUIZ'}" onchange="toggleLessonType('QUIZ')">
+                                <label class="form-check-label fw-semibold" for="typeQuiz">
+                                    📝 Bài kiểm tra (Quiz)
+                                </label>
+                            </div>
+                        </div>
                     </div>
 
-                    <div>
-                        <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Trạng thái</label>
-                        <select th:field="*{status}" style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem; background: #ffffff;">
-                            <option value="ACTIVE">ACTIVE</option>
-                            <option value="INACTIVE">INACTIVE</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- KHU VỰC CONDITIONAL 1: DÀNH CHO BÀI HỌC (LESSON) -->
-                <div id="section-lesson" style="margin-bottom: 1.25rem;">
-                    <div style="margin-bottom: 1.25rem;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Link Video bài giảng (YouTube/Vimeo)</label>
-                        <input type="url" th:field="*{videoLink}" placeholder="https://www.youtube.com/watch?v=..." style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
+                    <!-- Tên bài học -->
+                    <div class="mb-3">
+                        <label for="lessonName" class="form-label fw-bold">Tên bài học / Tiêu đề chương *</label>
+                        <input type="text" th:field="*{name}" id="lessonName" required placeholder="VD: Bài 1: Cài đặt môi trường JDK" class="form-control">
                     </div>
 
-                    <div style="margin-bottom: 1.25rem;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Nội dung lý thuyết (HTML Content)</label>
-                        <textarea th:field="*{htmlContent}" rows="8" placeholder="<p>Nhập nội dung bài học...</p>" style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem; font-family: monospace;"></textarea>
+                    <!-- Thứ tự & Chương mục cha & Trạng thái -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label for="lessonOrder" class="form-label fw-bold">Thứ tự hiển thị (Order) *</label>
+                            <input type="number" th:field="*{orderNum}" id="lessonOrder" min="1" required class="form-control">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="lessonParent" class="form-label fw-bold">Chương mục cha (Topic)</label>
+                            <select th:field="*{parentId}" id="lessonParent" class="form-select">
+                                <option value="">-- Không có (Chương gốc) --</option>
+                                <option th:each="pt : ${parentTopics}" th:value="${pt.id}" th:text="${pt.name}"></option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="lessonStatus" class="form-label fw-bold">Trạng thái (Status)</label>
+                            <select th:field="*{status}" id="lessonStatus" class="form-select">
+                                <option value="ACTIVE">Active</option>
+                                <option value="INACTIVE">Inactive</option>
+                            </select>
+                        </div>
                     </div>
-                </div>
 
-                <!-- KHU VỰC CONDITIONAL 2: DÀNH CHO BÀI QUIZ (QUIZ) -->
-                <div id="section-quiz" style="margin-bottom: 1.25rem; display: none;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Chọn bài Quiz đã tạo *</label>
-                    <select name="quizId" style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem; background: #ffffff;">
-                        <option value="">-- Chọn bài Quiz để gắn vào bài học --</option>
-                        <option th:each="q : ${quizzes}" th:value="${q.id}" th:text="${q.name + ' (' + q.duration + ' phút, ' + q.passRate + '%)'}" th:selected="${lesson.quiz != null && lesson.quiz.id == q.id}"></option>
-                    </select>
-                    <small style="color: var(--text-muted); display: block; margin-top: 0.3rem;">
-                        Chưa có Quiz? Bạn có thể tạo tại menu <a th:href="@{/content/quizzes/new}" target="_blank" style="color: var(--primary-color);">Quản lý Quiz & Test</a>.
-                    </small>
-                </div>
+                    <!-- KHU VỰC CONDITIONAL 1: DÀNH CHO BÀI HỌC (LESSON) -->
+                    <div id="section-lesson" class="mb-3 p-3 bg-white border rounded">
+                        <h6 class="fw-bold text-primary mb-3">🎥 Chi tiết nội dung Bài giảng</h6>
+                        
+                        <div class="mb-3">
+                            <label for="lessonVideo" class="form-label fw-semibold">Link Video bài giảng (YouTube/Vimeo)</label>
+                            <input type="url" th:field="*{videoLink}" id="lessonVideo" placeholder="https://www.youtube.com/watch?v=..." class="form-control">
+                        </div>
 
-                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
-                    <button type="submit" class="btn btn-primary" style="padding: 0.65rem 1.5rem;">💾 Lưu bài học</button>
-                    <a th:href="@{'/content/subjects/' + ${subject.id} + '/lessons'}" class="btn btn-outline" style="padding: 0.65rem 1.5rem;">Hủy</a>
-                </div>
-            </form>
+                        <div class="mb-2">
+                            <label for="lessonHtml" class="form-label fw-semibold">Nội dung lý thuyết (HTML Content)</label>
+                            <textarea th:field="*{htmlContent}" id="lessonHtml" rows="7" placeholder="<p>Nhập nội dung bài giảng tại đây...</p>" class="form-control font-monospace"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- KHU VỰC CONDITIONAL 2: DÀNH CHO BÀI QUIZ (QUIZ) -->
+                    <div id="section-quiz" class="mb-3 p-3 bg-white border rounded" style="display: none;">
+                        <h6 class="fw-bold text-warning mb-3">📝 Gắn bài Quiz trắc nghiệm</h6>
+                        
+                        <div class="mb-2">
+                            <label for="quizSelect" class="form-label fw-semibold">Chọn bài Quiz từ môn học này *</label>
+                            <select th:field="*{quizId}" id="quizSelect" class="form-select">
+                                <option value="">-- Chọn bài Quiz để gắn vào bài học --</option>
+                                <option th:each="q : ${quizzes}" th:value="${q.id}" th:text="${q.name + ' (' + q.duration + ' phút, ' + q.passRate + '%)'}"></option>
+                            </select>
+                            <div class="form-text mt-2">
+                                Chưa có Quiz? Bạn có thể tạo tại menu <a th:href="@{/content/quizzes/new}" target="_blank" class="fw-bold text-primary">Tạo bài Quiz mới</a>.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action buttons: Cancel left, Save right per Section 7.6 -->
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <a th:href="@{'/content/subjects/' + ${subject.id} + '/lessons'}" class="btn btn-outline-secondary px-4">← Quay lại / Hủy</a>
+                        <button type="submit" class="btn btn-primary px-4" id="btn-save-lesson">💾 Lưu bài học</button>
+                    </div>
+                </form>
+            </div>
         </div>
 
-        <!-- SCRIPT XỬ LÝ CONDITIONAL UI THEO TYPE -->
-        <script th:inline="javascript">
+        <!-- SCRIPT XỬ LÝ CONDITIONAL UI THEO TYPE (Vanilla JS) -->
+        <script>
             function toggleLessonType(type) {
                 const lessonSec = document.getElementById('section-lesson');
                 const quizSec = document.getElementById('section-quiz');

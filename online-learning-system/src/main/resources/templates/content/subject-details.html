@@ -2,257 +2,439 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
-      th:replace="~{fragments/content-layout :: content-layout(~{::title}, ~{::#content-body})}">
+      th:replace="~{layout/base :: base-layout(~{::title}, ~{::#content-body})}">
 <head>
     <title th:text="${subject.name + ' - Chi tiết môn học'}">Chi tiết môn học</title>
 </head>
 <body>
     <div id="content-body">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <a th:href="@{/content/subjects}" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">← Quay lại danh sách môn học</a>
-                <h1 style="font-size: 1.75rem; font-weight: 700; margin-top: 0.25rem;" th:text="${subject.name}">Java Core cơ bản</h1>
+                <a th:href="@{/content/subjects}" class="text-decoration-none text-muted small">← Quay lại danh sách môn học</a>
+                <h1 class="h3 fw-bold mt-1 mb-0" th:text="${subject.name}">Java Core cơ bản</h1>
             </div>
 
-            <div style="display: flex; gap: 0.75rem;">
-                <a th:href="@{'/content/subjects/' + ${subject.id} + '/lessons'}" class="btn btn-outline">📚 Xem danh sách bài học</a>
+            <div class="d-flex gap-2 align-items-center">
+                <a th:href="@{'/content/subjects/' + ${subject.id} + '/lessons'}" class="btn btn-outline-primary">
+                    📚 Quản lý bài học
+                </a>
                 
                 <!-- NÚT PUBLISH / UNPUBLISH CHỈ HIỂN THỊ VỚI ADMIN -->
                 <div sec:authorize="hasRole('ADMIN')">
-                    <form th:if="${subject.status.name() == 'UNPUBLISHED'}" th:action="@{'/content/subjects/' + ${subject.id} + '/publish'}" method="post" style="display: inline;">
-                        <button type="submit" class="btn btn-primary" style="background-color: #10b981;">🚀 Xuất bản (Publish)</button>
+                    <form th:if="${subject.status.name() == 'UNPUBLISHED'}" th:action="@{'/content/subjects/' + ${subject.id} + '/publish'}" method="post" class="d-inline">
+                        <button type="submit" class="btn btn-success">🚀 Xuất bản (Publish)</button>
                     </form>
-                    <form th:if="${subject.status.name() == 'PUBLISHED'}" th:action="@{'/content/subjects/' + ${subject.id} + '/unpublish'}" method="post" style="display: inline;">
-                        <button type="submit" class="btn btn-outline" style="color: #ef4444; border-color: #ef4444;">🛑 Hủy xuất bản (Unpublish)</button>
+                    <form th:if="${subject.status.name() == 'PUBLISHED'}" th:action="@{'/content/subjects/' + ${subject.id} + '/unpublish'}" method="post" class="d-inline">
+                        <button type="submit" class="btn btn-outline-danger">🛑 Hủy xuất bản (Unpublish)</button>
                     </form>
                 </div>
             </div>
         </div>
 
         <!-- Flash messages -->
-        <div th:if="${successMessage}" style="background-color: #dcfce7; color: #15803d; border: 1px solid #86efac; padding: 0.75rem 1rem; border-radius: 0.375rem; margin-bottom: 1.5rem;" th:text="${successMessage}"></div>
-        <div th:if="${errorMessage}" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; padding: 0.75rem 1rem; border-radius: 0.375rem; margin-bottom: 1.5rem;" th:text="${errorMessage}"></div>
+        <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
+            <span th:text="${successMessage}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show" role="alert">
+            <span th:text="${errorMessage}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
 
         <!-- TAB NAVIGATION -->
-        <div style="display: flex; gap: 1rem; border-bottom: 2px solid var(--border-color); margin-bottom: 2rem;">
-            <a th:href="@{'/content/subjects/' + ${subject.id} + '?tab=overview'}"
-               style="padding: 0.75rem 1.25rem; font-weight: 600; text-decoration: none; border-bottom: 3px solid transparent;"
-               th:styleappend="${activeTab == 'overview' ? 'border-color: var(--primary-color); color: var(--primary-color);' : 'color: var(--text-muted);'}">
-               📌 1. Tổng quan (Overview)
-            </a>
-            <a th:href="@{'/content/subjects/' + ${subject.id} + '?tab=dimension'}"
-               style="padding: 0.75rem 1.25rem; font-weight: 600; text-decoration: none; border-bottom: 3px solid transparent;"
-               th:styleappend="${activeTab == 'dimension' ? 'border-color: var(--primary-color); color: var(--primary-color);' : 'color: var(--text-muted);'}">
-               📐 2. Chuẩn đầu ra (Dimension)
-            </a>
-            <a th:href="@{'/content/subjects/' + ${subject.id} + '?tab=package'}"
-               style="padding: 0.75rem 1.25rem; font-weight: 600; text-decoration: none; border-bottom: 3px solid transparent;"
-               th:styleappend="${activeTab == 'package' ? 'border-color: var(--primary-color); color: var(--primary-color);' : 'color: var(--text-muted);'}">
-               🏷️ 3. Gói học phí (Price Package)
-            </a>
-        </div>
+        <ul class="nav nav-tabs mb-4 fw-semibold">
+            <li class="nav-item">
+                <a class="nav-link" th:classappend="${activeTab == 'overview' ? 'active' : ''}"
+                   th:href="@{'/content/subjects/' + ${subject.id} + '?tab=overview'}">
+                    📌 1. Tổng quan (Overview)
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" th:classappend="${activeTab == 'dimension' ? 'active' : ''}"
+                   th:href="@{'/content/subjects/' + ${subject.id} + '?tab=dimension'}">
+                    📐 2. Chuẩn đầu ra (Dimension)
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" th:classappend="${activeTab == 'package' ? 'active' : ''}"
+                   th:href="@{'/content/subjects/' + ${subject.id} + '?tab=package'}">
+                    🏷️ 3. Gói học phí (Price Package)
+                </a>
+            </li>
+        </ul>
 
         <!-- ========================================== -->
         <!-- TAB 1: OVERVIEW -->
         <!-- ========================================== -->
-        <div th:if="${activeTab == 'overview'}" style="background: #ffffff; border-radius: 0.5rem; border: 1px solid var(--border-color); padding: 2rem; max-width: 800px;">
-            <form th:action="@{'/content/subjects/' + ${subject.id} + '/overview'}" th:object="${subject}" method="post">
-                <div style="margin-bottom: 1.25rem;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Tên môn học / Khóa học *</label>
-                    <input type="text" th:field="*{name}" required style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
-                </div>
+        <div th:if="${activeTab == 'overview'}" class="card shadow-sm border-0" style="max-width: 900px;">
+            <div class="card-body p-4">
+                <form th:action="@{'/content/subjects/' + ${subject.id} + '/overview'}" th:object="${overviewForm}" method="post">
+                    <input type="hidden" th:field="*{id}">
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
-                    <div>
-                        <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Danh mục</label>
-                        <select name="categoryId" style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem; background: #ffffff;">
-                            <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.name}" th:selected="${subject.category != null && subject.category.id == cat.id}"></option>
-                        </select>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Tên môn học / Khóa học *</label>
+                        <input type="text" th:field="*{name}" required class="form-control">
                     </div>
 
-                    <div>
-                        <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Trạng thái hiện tại</label>
-                        <input type="text" th:value="${subject.status}" readonly style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem; background: #f1f5f9; font-weight: 600;">
-                    </div>
-                </div>
-
-                <div style="margin-bottom: 1.25rem;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Ảnh Thumbnail (URL)</label>
-                    <input type="url" th:field="*{thumbnail}" placeholder="https://..." style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
-                    <div th:if="${subject.thumbnail != null}" style="margin-top: 0.5rem;">
-                        <img th:src="${subject.thumbnail}" style="max-width: 200px; height: auto; border-radius: 0.25rem;">
-                    </div>
-                </div>
-
-                <div style="margin-bottom: 1.25rem;">
-                    <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600; font-size: 0.9rem; cursor: pointer;">
-                        <input type="checkbox" th:field="*{featured}"> Đánh dấu là Khóa học Nổi bật (Featured)
-                    </label>
-                </div>
-
-                <div style="margin-bottom: 1.25rem;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Thông tin tóm tắt (Brief Info)</label>
-                    <input type="text" th:field="*{briefInfo}" style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
-                </div>
-
-                <div style="margin-bottom: 1.5rem;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 0.35rem; font-size: 0.9rem;">Mô tả chi tiết (Description)</label>
-                    <textarea th:field="*{description}" rows="6" style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem;"></textarea>
-                </div>
-
-                <div style="margin-bottom: 1.5rem; padding: 1rem; background: #f8fafc; border-radius: 0.375rem; border: 1px solid var(--border-color);">
-                    <span style="font-weight: 600; font-size: 0.9rem;">Người phụ trách (Owner/Expert): </span>
-                    <span th:text="${subject.owner != null ? subject.owner.fullName + ' (' + subject.owner.email + ')' : 'Chưa phân công'}">Chưa có</span>
-                </div>
-
-                <button type="submit" class="btn btn-primary" style="padding: 0.65rem 1.5rem;">💾 Lưu thay đổi Overview</button>
-            </form>
-        </div>
-
-        <!-- ========================================== -->
-        <!-- TAB 2: DIMENSION -->
-        <!-- ========================================== -->
-        <div th:if="${activeTab == 'dimension'}">
-            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
-                <!-- Danh sách Dimensions -->
-                <div style="background: #ffffff; border-radius: 0.5rem; border: 1px solid var(--border-color); padding: 1.5rem;">
-                    <h3 style="font-size: 1.15rem; margin-bottom: 1rem;">Danh sách Dimensions của môn học</h3>
-                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
-                        <thead>
-                            <tr style="background: #f8fafc; border-bottom: 2px solid var(--border-color); font-size: 0.85rem; color: var(--text-muted);">
-                                <th style="padding: 0.65rem;">Tên Dimension</th>
-                                <th style="padding: 0.65rem;">Loại (Type)</th>
-                                <th style="padding: 0.65rem;">Mô tả</th>
-                                <th style="padding: 0.65rem; text-align: center;">Xóa</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr th:if="${#lists.isEmpty(subject.dimensions)}">
-                                <td colspan="4" style="padding: 1.5rem; text-align: center; color: var(--text-muted);">Chưa có Dimension nào.</td>
-                            </tr>
-                            <tr th:each="dim : ${subject.dimensions}" style="border-bottom: 1px solid var(--border-color);">
-                                <td style="padding: 0.65rem; font-weight: 600;" th:text="${dim.name}">Tư duy OOP</td>
-                                <td style="padding: 0.65rem;" th:text="${dim.type != null ? dim.type.name : '-'}">Skill</td>
-                                <td style="padding: 0.65rem; font-size: 0.85rem; color: var(--text-muted);" th:text="${dim.description}">Mô tả</td>
-                                <td style="padding: 0.65rem; text-align: center;">
-                                    <form th:action="@{'/content/subjects/' + ${subject.id} + '/dimensions/' + ${dim.id} + '/delete'}" method="post" onsubmit="return confirm('Bạn có chắc chắn muốn xóa Dimension này?');">
-                                        <button type="submit" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.85rem;">🗑️ Xóa</button>
-                                    </form>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Form thêm Dimension mới -->
-                <div style="background: #ffffff; border-radius: 0.5rem; border: 1px solid var(--border-color); padding: 1.5rem; height: fit-content;">
-                    <h3 style="font-size: 1.15rem; margin-bottom: 1rem;">➕ Thêm Dimension mới</h3>
-                    <form th:action="@{'/content/subjects/' + ${subject.id} + '/dimensions'}" method="post">
-                        <div style="margin-bottom: 1rem;">
-                            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem;">Tên Dimension *</label>
-                            <input type="text" name="name" required style="width: 100%; padding: 0.55rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
-                        </div>
-
-                        <div style="margin-bottom: 1rem;">
-                            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem;">Phân loại Type</label>
-                            <select name="dimensionTypeId" style="width: 100%; padding: 0.55rem; border: 1px solid var(--border-color); border-radius: 0.375rem; background: #ffffff;">
-                                <option th:each="dt : ${dimensionTypes}" th:value="${dt.id}" th:text="${dt.name}"></option>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Danh mục</label>
+                            <select th:field="*{categoryId}" class="form-select">
+                                <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.name}"></option>
                             </select>
                         </div>
 
-                        <div style="margin-bottom: 1.25rem;">
-                            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem;">Mô tả</label>
-                            <textarea name="description" rows="3" style="width: 100%; padding: 0.55rem; border: 1px solid var(--border-color); border-radius: 0.375rem;"></textarea>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Trạng thái hiện tại</label>
+                            <input type="text" th:value="${subject.status}" readonly class="form-control bg-light fw-bold text-muted">
                         </div>
+                    </div>
 
-                        <button type="submit" class="btn btn-primary" style="width: 100%;">Thêm Dimension</button>
-                    </form>
-                </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Ảnh Thumbnail (URL)</label>
+                        <input type="url" th:field="*{thumbnail}" placeholder="https://..." class="form-control">
+                        <div th:if="${subject.thumbnail != null}" class="mt-2">
+                            <img th:src="${subject.thumbnail}" alt="Thumbnail preview" class="img-thumbnail" style="max-height: 120px;">
+                        </div>
+                    </div>
+
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="featuredSwitch" th:field="*{featured}">
+                        <label class="form-check-label fw-semibold" for="featuredSwitch">Đánh dấu là Khóa học Nổi bật (Featured)</label>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Thông tin tóm tắt (Brief Info)</label>
+                        <input type="text" th:field="*{briefInfo}" class="form-control">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Mô tả chi tiết (Description)</label>
+                        <textarea th:field="*{description}" rows="6" class="form-control"></textarea>
+                    </div>
+
+                    <div class="p-3 bg-light rounded border mb-4">
+                        <span class="fw-bold">Người phụ trách (Owner / Expert): </span>
+                        <span th:text="${subject.owner != null ? subject.owner.fullName + ' (' + subject.owner.email + ')' : 'Chưa phân công'}">Chưa có</span>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary px-4">💾 Lưu thay đổi Overview</button>
+                </form>
             </div>
         </div>
 
         <!-- ========================================== -->
-        <!-- TAB 3: PRICE PACKAGE -->
+        <!-- TAB 2: DIMENSION (Both Expert and Admin) -->
         <!-- ========================================== -->
-        <div th:if="${activeTab == 'package'}">
-            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
-                <!-- Danh sách Price Packages -->
-                <div style="background: #ffffff; border-radius: 0.5rem; border: 1px solid var(--border-color); padding: 1.5rem;">
-                    <h3 style="font-size: 1.15rem; margin-bottom: 1rem;">Danh sách Gói học phí (Price Packages)</h3>
-                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
-                        <thead>
-                            <tr style="background: #f8fafc; border-bottom: 2px solid var(--border-color); font-size: 0.85rem; color: var(--text-muted);">
-                                <th style="padding: 0.65rem;">Tên gói</th>
-                                <th style="padding: 0.65rem;">Thời hạn (ngày)</th>
-                                <th style="padding: 0.65rem;">Giá gốc</th>
-                                <th style="padding: 0.65rem;">Giá ưu đãi</th>
-                                <th style="padding: 0.65rem;">Trạng thái</th>
-                                <th sec:authorize="hasRole('ADMIN')" style="padding: 0.65rem; text-align: center;">Xóa</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr th:if="${#lists.isEmpty(subject.pricePackages)}">
-                                <td colspan="6" style="padding: 1.5rem; text-align: center; color: var(--text-muted);">Chưa có gói học phí nào.</td>
-                            </tr>
-                            <tr th:each="pkg : ${subject.pricePackages}" style="border-bottom: 1px solid var(--border-color);">
-                                <td style="padding: 0.65rem; font-weight: 600;" th:text="${pkg.packageName}">Trọn gói</td>
-                                <td style="padding: 0.65rem;" th:text="${pkg.accessDuration + ' ngày'}">180 ngày</td>
-                                <td style="padding: 0.65rem; text-decoration: line-through; color: var(--text-muted);" th:text="${#numbers.formatDecimal(pkg.listPrice, 0, 'COMMA', 0, 'POINT') + ' đ'}">1.200.000 đ</td>
-                                <td style="padding: 0.65rem; font-weight: 700; color: #166534;" th:text="${#numbers.formatDecimal(pkg.salePrice, 0, 'COMMA', 0, 'POINT') + ' đ'}">899.000 đ</td>
-                                <td style="padding: 0.65rem;">
-                                    <span style="font-size: 0.75rem; padding: 0.2rem 0.4rem; border-radius: 0.2rem; background: #dcfce7; color: #15803d; font-weight: 600;" th:text="${pkg.status}">ACTIVE</span>
-                                </td>
-                                <td sec:authorize="hasRole('ADMIN')" style="padding: 0.65rem; text-align: center;">
-                                    <form th:action="@{'/content/subjects/' + ${subject.id} + '/packages/' + ${pkg.id} + '/delete'}" method="post" onsubmit="return confirm('Bạn có chắc muốn xóa gói học phí này?');">
-                                        <button type="submit" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.85rem;">🗑️ Xóa</button>
-                                    </form>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+        <div th:if="${activeTab == 'dimension'}">
+            <div class="row g-4">
+                <!-- Danh sách Dimensions -->
+                <div class="col-lg-8">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white py-3">
+                            <h5 class="mb-0 fw-bold">📐 Danh sách Chuẩn đầu ra (Dimensions)</h5>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light small text-uppercase text-muted">
+                                    <tr>
+                                        <th>Tên Dimension</th>
+                                        <th>Phân loại (Type)</th>
+                                        <th>Mô tả</th>
+                                        <th class="text-center" style="width: 140px;">Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:if="${#lists.isEmpty(subject.dimensions)}">
+                                        <td colspan="4" class="text-center py-4 text-muted">Chưa có Dimension nào cho môn học này.</td>
+                                    </tr>
+                                    <tr th:each="dim : ${subject.dimensions}">
+                                        <td class="fw-bold" th:text="${dim.name}">Tư duy OOP</td>
+                                        <td>
+                                            <span class="badge bg-info text-dark rounded-pill" th:text="${dim.type != null ? dim.type.name : '-'}">Skill</span>
+                                        </td>
+                                        <td class="small text-muted" th:text="${dim.description}">Mô tả</td>
+                                        <td class="text-center">
+                                            <div class="d-inline-flex gap-2">
+                                                <button type="button" class="btn btn-sm btn-outline-primary btn-edit-dim"
+                                                        th:data-dim-id="${dim.id}"
+                                                        th:data-dim-name="${dim.name}"
+                                                        th:data-dim-type-id="${dim.type != null ? dim.type.id : ''}"
+                                                        th:data-dim-desc="${dim.description}">
+                                                    ✏️ Sửa
+                                                </button>
+                                                <form th:action="@{'/content/subjects/' + ${subject.id} + '/dimensions/' + ${dim.id} + '/delete'}" method="post"
+                                                      onsubmit="return confirm('Bạn có chắc muốn xóa Dimension này?');" class="d-inline">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">🗑️ Xóa</button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Quyền Thêm Price Package: CHỈ ADMIN -->
-                <div sec:authorize="hasRole('ADMIN')" style="background: #ffffff; border-radius: 0.5rem; border: 1px solid var(--border-color); padding: 1.5rem; height: fit-content;">
-                    <h3 style="font-size: 1.15rem; margin-bottom: 1rem;">➕ Thêm Gói học phí mới</h3>
-                    <form th:action="@{'/content/subjects/' + ${subject.id} + '/packages'}" method="post">
-                        <div style="margin-bottom: 1rem;">
-                            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem;">Tên gói *</label>
-                            <input type="text" name="packageName" placeholder="VD: Gói 6 tháng" required style="width: 100%; padding: 0.55rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
+                <!-- Form Thêm Dimension Mới -->
+                <div class="col-lg-4">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white py-3">
+                            <h5 class="mb-0 fw-bold">➕ Thêm Dimension mới</h5>
                         </div>
+                        <div class="card-body">
+                            <form th:action="@{'/content/subjects/' + ${subject.id} + '/dimensions'}" th:object="${dimensionForm}" method="post">
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Tên Dimension *</label>
+                                    <input type="text" th:field="*{name}" required placeholder="VD: Lập trình hàm (Functional)" class="form-control">
+                                </div>
 
-                        <div style="margin-bottom: 1rem;">
-                            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem;">Thời hạn truy cập (ngày) *</label>
-                            <input type="number" name="accessDuration" value="180" min="1" required style="width: 100%; padding: 0.55rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Phân loại Type</label>
+                                    <select th:field="*{dimensionTypeId}" class="form-select">
+                                        <option value="">-- Chọn phân loại --</option>
+                                        <option th:each="dt : ${dimensionTypes}" th:value="${dt.id}" th:text="${dt.name}"></option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Mô tả</label>
+                                    <textarea th:field="*{description}" rows="3" placeholder="Mô tả nội dung chuẩn..." class="form-control"></textarea>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary w-100">Thêm Dimension</button>
+                            </form>
                         </div>
-
-                        <div style="margin-bottom: 1rem;">
-                            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem;">Giá niêm yết (VNĐ) *</label>
-                            <input type="number" name="listPrice" value="1000000" min="0" required style="width: 100%; padding: 0.55rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
-                        </div>
-
-                        <div style="margin-bottom: 1rem;">
-                            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem;">Giá bán ưu đãi (VNĐ) *</label>
-                            <input type="number" name="salePrice" value="799000" min="0" required style="width: 100%; padding: 0.55rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
-                        </div>
-
-                        <div style="margin-bottom: 1.25rem;">
-                            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem;">Mô tả gói</label>
-                            <textarea name="description" rows="2" style="width: 100%; padding: 0.55rem; border: 1px solid var(--border-color); border-radius: 0.375rem;"></textarea>
-                        </div>
-
-                        <button type="submit" class="btn btn-primary" style="width: 100%;">Tạo Price Package</button>
-                    </form>
-                </div>
-
-                <!-- Thông báo Readonly cho Expert -->
-                <div sec:authorize="hasRole('EXPERT')" style="background: #f8fafc; border-radius: 0.5rem; border: 1px solid var(--border-color); padding: 1.5rem; height: fit-content;">
-                    <div style="padding: 1rem; background: #e0f2fe; color: #0369a1; border-radius: 0.375rem; font-size: 0.9rem;">
-                        ℹ️ <strong>Chế độ chỉ đọc (Readonly):</strong><br>
-                        Tài khoản Giảng viên (Expert) chỉ có quyền xem các gói học phí. Quản trị viên (Admin) là người thiết lập giá và tạo các gói thanh toán.
                     </div>
                 </div>
             </div>
+
+            <!-- MODAL CHỈNH SỬA DIMENSION -->
+            <div class="modal fade" id="editDimModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <form id="editDimForm" method="post">
+                            <div class="modal-header">
+                                <h5 class="modal-title fw-bold">✏️ Chỉnh sửa Dimension</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <input type="hidden" id="editDimId" name="id">
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Tên Dimension *</label>
+                                    <input type="text" id="editDimName" name="name" required class="form-control">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Phân loại Type</label>
+                                    <select id="editDimTypeId" name="dimensionTypeId" class="form-select">
+                                        <option value="">-- Chọn phân loại --</option>
+                                        <option th:each="dt : ${dimensionTypes}" th:value="${dt.id}" th:text="${dt.name}"></option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Mô tả</label>
+                                    <textarea id="editDimDesc" name="description" rows="3" class="form-control"></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+                                <button type="submit" class="btn btn-primary">Lưu thay đổi</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <script th:inline="javascript">
+                document.addEventListener('DOMContentLoaded', function () {
+                    const subjectId = /*[[${subject.id}]]*/ 1;
+                    document.querySelectorAll('.btn-edit-dim').forEach(function (btn) {
+                        btn.addEventListener('click', function () {
+                            const dimId = this.dataset.dimId;
+                            document.getElementById('editDimId').value = dimId;
+                            document.getElementById('editDimName').value = this.dataset.dimName || '';
+                            document.getElementById('editDimTypeId').value = this.dataset.dimTypeId || '';
+                            document.getElementById('editDimDesc').value = this.dataset.dimDesc || '';
+                            document.getElementById('editDimForm').action = '/content/subjects/' + subjectId + '/dimensions/' + dimId + '/edit';
+                            const modal = new bootstrap.Modal(document.getElementById('editDimModal'));
+                            modal.show();
+                        });
+                    });
+                });
+            </script>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- TAB 3: PRICE PACKAGE (Admin Full CRUD, Expert Read-Only) -->
+        <!-- ============================================================ -->
+        <div th:if="${activeTab == 'package'}">
+            <div class="row g-4">
+                <!-- Danh sách Price Packages -->
+                <div th:class="${isAdmin ? 'col-lg-8' : 'col-12'}">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 fw-bold">🏷️ Danh sách Gói học phí (Price Packages)</h5>
+                            <span sec:authorize="hasRole('EXPERT')" class="badge bg-secondary">Chế độ Chỉ đọc (Read-only)</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light small text-uppercase text-muted">
+                                    <tr>
+                                        <th>Tên gói</th>
+                                        <th>Thời hạn</th>
+                                        <th>Giá niêm yết</th>
+                                        <th>Giá bán</th>
+                                        <th>Trạng thái</th>
+                                        <th sec:authorize="hasRole('ADMIN')" class="text-center" style="width: 140px;">Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:if="${#lists.isEmpty(subject.pricePackages)}">
+                                        <td colspan="6" class="text-center py-4 text-muted">Chưa có gói học phí nào.</td>
+                                    </tr>
+                                    <tr th:each="pkg : ${subject.pricePackages}">
+                                        <td class="fw-bold" th:text="${pkg.packageName}">Trọn gói</td>
+                                        <td th:text="${pkg.accessDuration + ' ngày'}">180 ngày</td>
+                                        <td class="text-decoration-line-through text-muted" th:text="${#numbers.formatDecimal(pkg.listPrice, 0, 'COMMA', 0, 'POINT') + ' đ'}">1.200.000 đ</td>
+                                        <td class="fw-bold text-success" th:text="${#numbers.formatDecimal(pkg.salePrice, 0, 'COMMA', 0, 'POINT') + ' đ'}">899.000 đ</td>
+                                        <td>
+                                            <span class="badge bg-success rounded-pill" th:if="${pkg.status?.name() == 'ACTIVE'}">Active</span>
+                                            <span class="badge bg-secondary rounded-pill" th:if="${pkg.status?.name() == 'INACTIVE'}">Inactive</span>
+                                        </td>
+                                        <td sec:authorize="hasRole('ADMIN')" class="text-center">
+                                            <div class="d-inline-flex gap-2">
+                                                <button type="button" class="btn btn-sm btn-outline-primary btn-edit-pkg"
+                                                        th:data-pkg-id="${pkg.id}"
+                                                        th:data-pkg-name="${pkg.packageName}"
+                                                        th:data-pkg-duration="${pkg.accessDuration}"
+                                                        th:data-pkg-list-price="${pkg.listPrice}"
+                                                        th:data-pkg-sale-price="${pkg.salePrice}"
+                                                        th:data-pkg-status="${pkg.status}"
+                                                        th:data-pkg-desc="${pkg.description}">
+                                                    ✏️ Sửa
+                                                </button>
+                                                <form th:action="@{'/content/subjects/' + ${subject.id} + '/packages/' + ${pkg.id} + '/delete'}" method="post"
+                                                      onsubmit="return confirm('Bạn có chắc muốn xóa gói học phí này?');" class="d-inline">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">🗑️ Xóa</button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Thêm Gói Học Phí (Admin Only) -->
+                <div sec:authorize="hasRole('ADMIN')" class="col-lg-4">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white py-3">
+                            <h5 class="mb-0 fw-bold">➕ Thêm Gói học phí mới</h5>
+                        </div>
+                        <div class="card-body">
+                            <form th:action="@{'/content/subjects/' + ${subject.id} + '/packages'}" th:object="${pricePackageForm}" method="post">
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Tên gói *</label>
+                                    <input type="text" th:field="*{packageName}" placeholder="VD: Gói ôn thi 6 tháng" required class="form-control">
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Thời hạn truy cập (ngày) *</label>
+                                    <input type="number" th:field="*{accessDuration}" min="1" value="180" required class="form-control">
+                                </div>
+
+                                <div class="row g-2 mb-3">
+                                    <div class="col-6">
+                                        <label class="form-label small fw-semibold">Giá gốc (VNĐ) *</label>
+                                        <input type="number" th:field="*{listPrice}" min="0" value="1000000" required class="form-control">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small fw-semibold">Giá bán (VNĐ) *</label>
+                                        <input type="number" th:field="*{salePrice}" min="0" value="799000" required class="form-control">
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Mô tả gói</label>
+                                    <textarea th:field="*{description}" rows="2" class="form-control"></textarea>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary w-100">Tạo Price Package</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODAL CHỈNH SỬA PRICE PACKAGE (Admin Only) -->
+            <div sec:authorize="hasRole('ADMIN')" class="modal fade" id="editPkgModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <form id="editPkgForm" method="post">
+                            <div class="modal-header">
+                                <h5 class="modal-title fw-bold">✏️ Chỉnh sửa Gói học phí</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <input type="hidden" id="editPkgId" name="id">
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Tên gói *</label>
+                                    <input type="text" id="editPkgName" name="packageName" required class="form-control">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Thời hạn (ngày) *</label>
+                                    <input type="number" id="editPkgDuration" name="accessDuration" min="1" required class="form-control">
+                                </div>
+                                <div class="row g-2 mb-3">
+                                    <div class="col-6">
+                                        <label class="form-label small fw-semibold">Giá niêm yết (VNĐ) *</label>
+                                        <input type="number" id="editPkgListPrice" name="listPrice" min="0" required class="form-control">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small fw-semibold">Giá bán (VNĐ) *</label>
+                                        <input type="number" id="editPkgSalePrice" name="salePrice" min="0" required class="form-control">
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Trạng thái</label>
+                                    <select id="editPkgStatus" name="status" class="form-select">
+                                        <option value="ACTIVE">ACTIVE</option>
+                                        <option value="INACTIVE">INACTIVE</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold">Mô tả</label>
+                                    <textarea id="editPkgDesc" name="description" rows="2" class="form-control"></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+                                <button type="submit" class="btn btn-primary">Lưu thay đổi</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <script th:inline="javascript">
+                document.addEventListener('DOMContentLoaded', function () {
+                    const subjectId = /*[[${subject.id}]]*/ 1;
+                    document.querySelectorAll('.btn-edit-pkg').forEach(function (btn) {
+                        btn.addEventListener('click', function () {
+                            const pkgId = this.dataset.pkgId;
+                            document.getElementById('editPkgId').value = pkgId;
+                            document.getElementById('editPkgName').value = this.dataset.pkgName || '';
+                            document.getElementById('editPkgDuration').value = this.dataset.pkgDuration || '';
+                            document.getElementById('editPkgListPrice').value = this.dataset.pkgListPrice || '';
+                            document.getElementById('editPkgSalePrice').value = this.dataset.pkgSalePrice || '';
+                            document.getElementById('editPkgStatus').value = this.dataset.pkgStatus || 'ACTIVE';
+                            document.getElementById('editPkgDesc').value = this.dataset.pkgDesc || '';
+                            document.getElementById('editPkgForm').action = '/content/subjects/' + subjectId + '/packages/' + pkgId + '/edit';
+                            const modal = new bootstrap.Modal(document.getElementById('editPkgModal'));
+                            modal.show();
+                        });
+                    });
+                });
+            </script>
         </div>
     </div>
 </body>

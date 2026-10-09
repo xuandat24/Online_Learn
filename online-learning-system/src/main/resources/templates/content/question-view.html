@@ -1,0 +1,108 @@
+<!-- Thư mục: src/main/resources/templates/content/question-view.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: base-layout(~{::title}, ~{::#content-body})}">
+<head>
+    <title th:text="${'Chi tiết câu hỏi #' + question.id + ' - OnlineLearn'}">Xem chi tiết câu hỏi</title>
+</head>
+<body>
+    <div id="content-body">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <a th:href="@{/content/questions}" class="text-decoration-none text-muted small">← Quay lại ngân hàng câu hỏi</a>
+                <h1 class="h3 fw-bold mt-1 mb-0" th:text="${'👁️ Chi tiết câu hỏi #' + question.id}">Câu hỏi #1</h1>
+            </div>
+
+            <div class="d-flex gap-2">
+                <a th:href="@{'/content/questions/' + ${question.id}}" class="btn btn-primary">✏️ Chỉnh sửa câu hỏi</a>
+                <a th:href="@{/content/questions}" class="btn btn-outline-secondary">Quay lại danh sách</a>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0 mb-4" style="max-width: 900px;">
+            <div class="card-body p-4">
+                <!-- Metadata Grid -->
+                <div class="row g-3 p-3 bg-light rounded border mb-4">
+                    <div class="col-md-4">
+                        <span class="text-muted small d-block">Môn học:</span>
+                        <strong th:text="${question.subject != null ? question.subject.name : '—'}">Java Core</strong>
+                    </div>
+                    <div class="col-md-4">
+                        <span class="text-muted small d-block">Bài học liên kết:</span>
+                        <strong th:text="${question.lesson != null ? question.lesson.name : 'Chưa liên kết'}">Bài 1</strong>
+                    </div>
+                    <div class="col-md-2">
+                        <span class="text-muted small d-block">Mức độ:</span>
+                        <span class="badge bg-light text-dark border rounded-pill" th:text="${question.level != null ? question.level.name : '—'}">EASY</span>
+                    </div>
+                    <div class="col-md-2">
+                        <span class="text-muted small d-block">Trạng thái:</span>
+                        <span class="badge bg-success rounded-pill" th:if="${question.status.name() == 'ACTIVE'}">Active</span>
+                        <span class="badge bg-secondary rounded-pill" th:if="${question.status.name() == 'INACTIVE'}">Inactive</span>
+                    </div>
+                </div>
+
+                <!-- Dimensions -->
+                <div class="mb-4" th:if="${question.dimensions != null && !question.dimensions.isEmpty()}">
+                    <span class="text-muted small d-block mb-1">Chuẩn đầu ra (Dimensions):</span>
+                    <span th:each="dim : ${question.dimensions}" class="badge bg-light text-dark border rounded-pill me-1" th:text="${dim.name}">Tư duy OOP</span>
+                </div>
+
+                <!-- Nội dung câu hỏi -->
+                <div class="mb-4">
+                    <label class="form-label text-muted small text-uppercase fw-bold">Nội dung câu hỏi</label>
+                    <div class="p-3 bg-white border rounded fs-5 fw-semibold" th:text="${question.content}">
+                        Nội dung câu hỏi ở đây...
+                    </div>
+                </div>
+
+                <!-- Media Preview -->
+                <div th:if="${question.mediaUrl != null && !question.mediaUrl.isEmpty()}" class="mb-4 p-3 bg-light border rounded">
+                    <label class="form-label text-muted small text-uppercase fw-bold">Media đính kèm</label>
+                    <div th:if="${question.mediaType?.name() == 'IMAGE'}">
+                        <img th:src="${question.mediaUrl}" alt="Media Image" class="img-fluid rounded border" style="max-height: 300px;">
+                    </div>
+                    <div th:if="${question.mediaType?.name() == 'VIDEO'}">
+                        <video controls class="w-100 rounded border" style="max-height: 300px;">
+                            <source th:src="${question.mediaUrl}">
+                            Trình duyệt không hỗ trợ thẻ video.
+                        </video>
+                    </div>
+                    <div th:if="${question.mediaType?.name() == 'AUDIO'}">
+                        <audio controls class="w-100">
+                            <source th:src="${question.mediaUrl}">
+                            Trình duyệt không hỗ trợ thẻ audio.
+                        </audio>
+                    </div>
+                </div>
+
+                <!-- Danh sách đáp án -->
+                <div class="mb-4">
+                    <label class="form-label text-muted small text-uppercase fw-bold mb-2">Các phương án trả lời</label>
+                    <div class="list-group">
+                        <div th:each="opt, iter : ${question.answers}"
+                             class="list-group-item d-flex justify-content-between align-items-center py-3"
+                             th:classappend="${opt.isCorrect ? 'list-group-item-success border-success fw-bold' : ''}">
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge rounded-pill"
+                                      th:classappend="${opt.isCorrect ? 'bg-success' : 'bg-secondary'}"
+                                      th:text="${#strings.substring('ABCD', iter.index, iter.index + 1) + '.'}">A.</span>
+                                <span th:text="${opt.content}">Phương án nội dung</span>
+                            </div>
+                            <span th:if="${opt.isCorrect}" class="badge bg-success rounded-pill">✓ Đáp án đúng</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Giải thích chi tiết -->
+                <div class="mb-4" th:if="${question.explanation != null && !question.explanation.isEmpty()}">
+                    <label class="form-label text-muted small text-uppercase fw-bold">Giải thích chi tiết</label>
+                    <div class="p-3 bg-light border rounded text-secondary" th:text="${question.explanation}">
+                        Giải thích vì sao đáp án đúng...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

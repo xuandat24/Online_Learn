@@ -1,94 +1,126 @@
 <!-- Thư mục: src/main/resources/templates/content/lesson-list.html -->
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org"
-      th:replace="~{fragments/content-layout :: content-layout(~{::title}, ~{::#content-body})}">
+      th:replace="~{layout/base :: base-layout(~{::title}, ~{::#content-body})}">
 <head>
     <title th:text="${'Bài học: ' + subject.name + ' - OnlineLearn'}">Quản lý bài học</title>
 </head>
 <body>
     <div id="content-body">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <a th:href="@{'/content/subjects/' + ${subject.id}}" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">← Quay lại chi tiết môn học</a>
-                <h1 style="font-size: 1.75rem; font-weight: 700; margin-top: 0.25rem;" th:text="${'Quản lý bài học: ' + subject.name}">Java Core cơ bản</h1>
+                <a th:href="@{'/content/subjects/' + ${subject.id}}" class="text-decoration-none text-muted small">← Quay lại chi tiết môn học</a>
+                <h1 class="h3 fw-bold mt-1 mb-0" th:text="${'📚 Quản lý bài học: ' + subject.name}">Java Core cơ bản</h1>
             </div>
 
             <div>
-                <a th:href="@{'/content/subjects/' + ${subject.id} + '/lessons/new'}" class="btn btn-primary">➕ Thêm bài học mới</a>
+                <a th:href="@{'/content/subjects/' + ${subject.id} + '/lessons/new'}" class="btn btn-primary" id="btn-add-lesson">
+                    ➕ Thêm bài học mới
+                </a>
             </div>
         </div>
 
         <!-- Flash messages -->
-        <div th:if="${successMessage}" style="background-color: #dcfce7; color: #15803d; border: 1px solid #86efac; padding: 0.75rem 1rem; border-radius: 0.375rem; margin-bottom: 1.5rem;" th:text="${successMessage}"></div>
+        <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
+            <span th:text="${successMessage}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show" role="alert">
+            <span th:text="${errorMessage}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
 
         <!-- Search bar -->
-        <div style="background: #ffffff; padding: 1.25rem; border-radius: 0.5rem; border: 1px solid var(--border-color); margin-bottom: 1.5rem;">
-            <form th:action="@{'/content/subjects/' + ${subject.id} + '/lessons'}" method="get" style="display: flex; gap: 1rem; align-items: center;">
-                <input type="text" name="keyword" th:value="${keyword}" placeholder="Tìm kiếm theo tên bài học..." style="flex: 1; padding: 0.6rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
-                <button type="submit" class="btn btn-primary">Tìm kiếm</button>
-                <a th:href="@{'/content/subjects/' + ${subject.id} + '/lessons'}" class="btn btn-outline">Đặt lại</a>
-            </form>
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body">
+                <form th:action="@{'/content/subjects/' + ${subject.id} + '/lessons'}" method="get" class="row g-2 align-items-center">
+                    <div class="col-md-9">
+                        <input type="text" name="keyword" th:value="${keyword}" placeholder="🔍 Tìm kiếm theo tên bài học..." class="form-control">
+                    </div>
+                    <div class="col-md-3 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary flex-grow-1">Tìm kiếm</button>
+                        <a th:href="@{'/content/subjects/' + ${subject.id} + '/lessons'}" class="btn btn-outline-secondary">Đặt lại</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Total count indicator -->
+        <div class="d-flex justify-content-between align-items-center mb-2" th:if="${lessons != null}">
+            <div class="text-muted small">
+                Hiển thị <strong th:text="${lessons.size()}">0</strong> bài học
+            </div>
         </div>
 
         <!-- Bảng danh sách bài học -->
-        <div style="background: #ffffff; border-radius: 0.5rem; border: 1px solid var(--border-color); overflow: hidden;">
-            <table style="width: 100%; border-collapse: collapse; text-align: left;">
-                <thead>
-                    <tr style="background: #f1f5f9; border-bottom: 2px solid var(--border-color); color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase;">
-                        <th style="padding: 0.85rem 1rem;">ID</th>
-                        <th style="padding: 0.85rem 1rem;">Thứ tự</th>
-                        <th style="padding: 0.85rem 1rem;">Tên bài học / Chương</th>
-                        <th style="padding: 0.85rem 1rem;">Chương mục cha</th>
-                        <th style="padding: 0.85rem 1rem;">Phân loại (Type)</th>
-                        <th style="padding: 0.85rem 1rem;">Trạng thái</th>
-                        <th style="padding: 0.85rem 1rem; text-align: center;">Hành động</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr th:if="${#lists.isEmpty(lessons)}">
-                        <td colspan="7" style="padding: 2.5rem; text-align: center; color: var(--text-muted);">
-                            Chưa có bài học nào trong môn học này. Hãy nhấn "Thêm bài học mới".
-                        </td>
-                    </tr>
-                    <tr th:each="les : ${lessons}" style="border-bottom: 1px solid var(--border-color);"
-                        th:styleappend="${les.type.name() == 'SUBJECT_TOPIC' ? 'background-color: #f8fafc; font-weight: 600;' : ''}">
-                        <td style="padding: 0.85rem 1rem;" th:text="${les.id}">1</td>
-                        <td style="padding: 0.85rem 1rem; font-weight: 700;" th:text="${les.orderNum}">1</td>
-                        <td style="padding: 0.85rem 1rem;">
-                            <span th:if="${les.type.name() == 'SUBJECT_TOPIC'}">📁 </span>
-                            <span th:if="${les.type.name() == 'LESSON'}">📄 </span>
-                            <span th:if="${les.type.name() == 'QUIZ'}">📝 </span>
-                            <a th:href="@{'/content/lessons/' + ${les.id}}" style="color: var(--text-main); text-decoration: none;" th:text="${les.name}">Chương 1</a>
-                            <div th:if="${les.quiz != null}" style="font-size: 0.8rem; color: #0284c7; margin-top: 0.2rem;">
-                                Gắn Quiz: <span th:text="${les.quiz.name}">Quiz Java</span>
-                            </div>
-                        </td>
-                        <td style="padding: 0.85rem 1rem; color: var(--text-muted);" th:text="${les.parentLesson != null ? les.parentLesson.name : '-'}">-</td>
-                        <td style="padding: 0.85rem 1rem;">
-                            <span th:if="${les.type.name() == 'SUBJECT_TOPIC'}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 0.25rem; background: #e2e8f0; color: #334155; font-weight: 600;">TOPIC</span>
-                            <span th:if="${les.type.name() == 'LESSON'}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 0.25rem; background: #dbeafe; color: #1e40af; font-weight: 600;">LESSON</span>
-                            <span th:if="${les.type.name() == 'QUIZ'}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 0.25rem; background: #fef3c7; color: #92400e; font-weight: 600;">QUIZ</span>
-                        </td>
-                        <td style="padding: 0.85rem 1rem;">
-                            <span th:if="${les.status.name() == 'ACTIVE'}" style="padding: 0.2rem 0.5rem; border-radius: 0.25rem; font-size: 0.8rem; background: #dcfce7; color: #15803d; font-weight: 600;">ACTIVE</span>
-                            <span th:if="${les.status.name() == 'INACTIVE'}" style="padding: 0.2rem 0.5rem; border-radius: 0.25rem; font-size: 0.8rem; background: #fee2e2; color: #991b1b; font-weight: 600;">INACTIVE</span>
-                        </td>
-                        <td style="padding: 0.85rem 1rem; text-align: center;">
-                            <div style="display: flex; gap: 0.5rem; justify-content: center; align-items: center;">
-                                <a th:href="@{'/content/lessons/' + ${les.id}}" class="btn btn-outline" style="padding: 0.3rem 0.65rem; font-size: 0.85rem;">Sửa</a>
-                                
-                                <form th:action="@{'/content/lessons/' + ${les.id} + '/toggle-status'}" method="post" style="display: inline;">
-                                    <input type="hidden" name="subjectId" th:value="${subject.id}">
-                                    <button type="submit" class="btn btn-outline" style="padding: 0.3rem 0.65rem; font-size: 0.85rem;"
-                                            th:styleappend="${les.status.name() == 'ACTIVE' ? 'color: #b91c1c; border-color: #fca5a5;' : 'color: #15803d; border-color: #86efac;'}">
-                                        <span th:text="${les.status.name() == 'ACTIVE' ? 'Tắt' : 'Bật'}">Tắt</span>
-                                    </button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+        <div class="card shadow-sm border-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase text-muted">
+                        <tr>
+                            <th style="width: 70px;">ID</th>
+                            <th>Bài học</th>
+                            <th style="width: 100px;">Thứ tự</th>
+                            <th style="width: 140px;">Phân loại (Type)</th>
+                            <th style="width: 120px;">Trạng thái</th>
+                            <th class="text-center" style="width: 200px;">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${#lists.isEmpty(lessons)}">
+                            <td colspan="6" class="text-center py-5 text-muted">
+                                <div class="fs-1 mb-2">📭</div>
+                                <div class="fw-semibold mb-1">Chưa có bài học nào trong môn học này.</div>
+                                <a th:href="@{'/content/subjects/' + ${subject.id} + '/lessons/new'}" class="btn btn-sm btn-primary mt-2">➕ Thêm bài học mới</a>
+                            </td>
+                        </tr>
+                        <tr th:each="les : ${lessons}"
+                            th:classappend="${les.type.name() == 'SUBJECT_TOPIC' ? 'table-light fw-semibold' : ''}">
+                            <td class="fw-bold" th:text="${les.id}">1</td>
+                            <td>
+                                <div>
+                                    <span th:if="${les.type.name() == 'SUBJECT_TOPIC'}">📁 </span>
+                                    <span th:if="${les.type.name() == 'LESSON'}">📄 </span>
+                                    <span th:if="${les.type.name() == 'QUIZ'}">📝 </span>
+                                    <a th:href="@{'/content/lessons/' + ${les.id}}" class="fw-bold text-decoration-none text-dark" th:text="${les.name}">Chương 1</a>
+                                    
+                                    <span th:if="${les.parentLesson != null}" class="badge bg-light text-muted border rounded-pill ms-2">
+                                        Thuộc: <span th:text="${les.parentLesson.name}">Chương 1</span>
+                                    </span>
+                                </div>
+                                <div th:if="${les.quiz != null}" class="small text-primary mt-1">
+                                    🎯 Gắn Quiz: <strong th:text="${les.quiz.name}">Quiz Java</strong>
+                                </div>
+                            </td>
+                            <td class="fw-bold" th:text="${les.orderNum}">1</td>
+                            <td>
+                                <span th:if="${les.type.name() == 'SUBJECT_TOPIC'}" class="badge bg-secondary rounded-pill">Topic</span>
+                                <span th:if="${les.type.name() == 'LESSON'}" class="badge bg-primary rounded-pill">Lesson</span>
+                                <span th:if="${les.type.name() == 'QUIZ'}" class="badge bg-warning text-dark rounded-pill">Quiz</span>
+                            </td>
+                            <td>
+                                <span th:if="${les.status.name() == 'ACTIVE'}" class="badge bg-success rounded-pill">Active</span>
+                                <span th:if="${les.status.name() == 'INACTIVE'}" class="badge bg-secondary rounded-pill">Inactive</span>
+                            </td>
+                            <td class="text-center">
+                                <div class="d-inline-flex gap-2">
+                                    <a th:href="@{'/content/lessons/' + ${les.id}}" class="btn btn-sm btn-outline-primary"
+                                       th:id="'btn-edit-lesson-' + ${les.id}">✏️ Sửa</a>
+                                    
+                                    <form th:action="@{'/content/lessons/' + ${les.id} + '/toggle-status'}" method="post" class="d-inline">
+                                        <input type="hidden" name="subjectId" th:value="${subject.id}">
+                                        <button type="submit" class="btn btn-sm"
+                                                th:classappend="${les.status.name() == 'ACTIVE' ? 'btn-outline-danger' : 'btn-outline-success'}"
+                                                th:text="${les.status.name() == 'ACTIVE' ? 'Tắt' : 'Bật'}">
+                                            Tắt
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </body>

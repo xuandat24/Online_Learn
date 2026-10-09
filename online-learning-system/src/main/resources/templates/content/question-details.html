@@ -1,161 +1,266 @@
 <!-- Thư mục: src/main/resources/templates/content/question-details.html -->
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org"
-      th:replace="~{fragments/content-layout :: content-layout(~{::title}, ~{::#content-body})}">
+      th:replace="~{layout/base :: base-layout(~{::title}, ~{::#content-body})}">
 <head>
-    <title th:text="${question.id != null ? 'Chỉnh sửa câu hỏi' : 'Thêm câu hỏi mới'}">Chi tiết câu hỏi</title>
+    <title th:text="${questionForm.id != null ? 'Chỉnh sửa câu hỏi #' + questionForm.id : 'Thêm câu hỏi mới'}">Chi tiết câu hỏi</title>
 </head>
 <body>
     <div id="content-body">
-        <div style="margin-bottom: 1.5rem;">
-            <a th:href="@{/content/questions}" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">← Quay lại ngân hàng câu hỏi</a>
-            <h1 style="font-size: 1.75rem; font-weight: 700; margin-top: 0.25rem;"
-                th:text="${question.id != null ? 'Chỉnh sửa câu hỏi #' + question.id : 'Thêm câu hỏi mới'}">
+        <div class="mb-4">
+            <a th:href="@{/content/questions}" class="text-decoration-none text-muted small">← Quay lại ngân hàng câu hỏi</a>
+            <h1 class="h3 fw-bold mt-1 mb-0"
+                th:text="${questionForm.id != null ? '✏️ Chỉnh sửa câu hỏi #' + questionForm.id : '➕ Thêm câu hỏi mới'}">
                 Thêm câu hỏi mới
             </h1>
         </div>
 
         <!-- Flash messages -->
-        <div th:if="${errorMessage}" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; padding: 0.75rem 1rem; border-radius: 0.375rem; margin-bottom: 1.5rem;" th:text="${errorMessage}"></div>
-
-        <div style="background: #ffffff; border-radius: 0.5rem; border: 1px solid var(--border-color); padding: 2rem; max-width: 850px;">
-            <form th:action="@{/content/questions/save}" th:object="${question}" method="post">
-                <input type="hidden" th:field="*{id}">
-
-                <!-- Môn học & Bài học & Mức độ -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
-                    <div>
-                        <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Môn học *</label>
-                        <select name="subjectId" id="subjectSelect" required onchange="handleSubjectChange(this.value)" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border-color); border-radius: 0.375rem; background: #ffffff;">
-                            <option value="">-- Chọn môn học --</option>
-                            <option th:each="s : ${subjects}" th:value="${s.id}" th:text="${s.name}" th:selected="${question.subject != null && question.subject.id == s.id}"></option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Bài học liên kết</label>
-                        <select name="lessonId" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border-color); border-radius: 0.375rem; background: #ffffff;">
-                            <option value="">-- Không gắn cụ thể --</option>
-                            <option th:each="l : ${lessons}" th:value="${l.id}" th:text="${l.name}" th:selected="${question.lesson != null && question.lesson.id == l.id}"></option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Mức độ câu hỏi *</label>
-                        <select name="levelId" required style="width: 100%; padding: 0.6rem; border: 1px solid var(--border-color); border-radius: 0.375rem; background: #ffffff;">
-                            <option th:each="lvl : ${levels}" th:value="${lvl.id}" th:text="${lvl.name}" th:selected="${question.level != null && question.level.id == lvl.id}"></option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Dimension liên kết (Multi-select) -->
-                <div th:if="${not #lists.isEmpty(dimensions)}" style="margin-bottom: 1.25rem;">
-                    <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Chuẩn đầu ra (Dimension)</label>
-                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                        <label th:each="dim : ${dimensions}" style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; cursor: pointer;">
-                            <input type="checkbox" name="dimensionIds" th:value="${dim.id}"
-                                   th:checked="${question.dimensions != null && question.dimensions.contains(dim)}">
-                            <span th:text="${dim.name}">Tư duy OOP</span>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Nội dung câu hỏi -->
-                <div style="margin-bottom: 1.25rem;">
-                    <label style="display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.35rem;">Nội dung câu hỏi *</label>
-                    <textarea th:field="*{content}" rows="4" required placeholder="Nhập câu hỏi trắc nghiệm tại đây..." style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem;"></textarea>
-                </div>
-
-                <!-- Media đính kèm (URL + Xem trước) -->
-                <div style="margin-bottom: 1.5rem; padding: 1rem; background: #f8fafc; border-radius: 0.375rem; border: 1px solid var(--border-color);">
-                    <div style="display: grid; grid-template-columns: 150px 1fr; gap: 1rem; align-items: center;">
-                        <div>
-                            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem;">Loại Media</label>
-                            <select th:field="*{mediaType}" style="width: 100%; padding: 0.55rem; border: 1px solid var(--border-color); border-radius: 0.375rem; background: #ffffff;">
-                                <option value="NONE">Không có</option>
-                                <option value="IMAGE">Hình ảnh</option>
-                                <option value="VIDEO">Video</option>
-                                <option value="AUDIO">Âm thanh</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem;">Đường dẫn Media (URL)</label>
-                            <input type="url" th:field="*{mediaUrl}" id="mediaUrlInput" placeholder="https://..." oninput="updateMediaPreview(this.value)" style="width: 100%; padding: 0.55rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
-                        </div>
-                    </div>
-                    <div id="mediaPreview" style="margin-top: 0.75rem;" th:if="${question.mediaUrl != null && !question.mediaUrl.isEmpty()}">
-                        <img th:src="${question.mediaUrl}" style="max-height: 180px; border-radius: 0.25rem;">
-                    </div>
-                </div>
-
-                <!-- ============================================================ -->
-                <!-- CÁC PHƯƠNG ÁN ĐÁP ÁN (ANSWER OPTIONS) & CHỌN ĐÁP ÁN ĐÚNG -->
-                <!-- ============================================================ -->
-                <div style="margin-bottom: 1.5rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-                        <label style="font-weight: 700; font-size: 0.95rem;">Các phương án trả lời (Options) *</label>
-                        <span style="font-size: 0.85rem; color: var(--text-muted);">Tối thiểu 2 đáp án, tích chọn nút tròn cho 1 đáp án đúng</span>
-                    </div>
-
-                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                        <!-- Đáp án A -->
-                        <div style="display: flex; align-items: center; gap: 0.75rem;">
-                            <input type="radio" name="correctIndex" value="0" th:checked="${#lists.size(question.answers) > 0 && question.answers[0].isCorrect}" required style="transform: scale(1.3); cursor: pointer;" title="Chọn làm đáp án đúng">
-                            <span style="font-weight: 700; width: 25px;">A.</span>
-                            <input type="text" name="optionContent" th:value="${#lists.size(question.answers) > 0 ? question.answers[0].content : ''}" placeholder="Nhập đáp án A..." required style="flex: 1; padding: 0.6rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
-                        </div>
-
-                        <!-- Đáp án B -->
-                        <div style="display: flex; align-items: center; gap: 0.75rem;">
-                            <input type="radio" name="correctIndex" value="1" th:checked="${#lists.size(question.answers) > 1 && question.answers[1].isCorrect}" style="transform: scale(1.3); cursor: pointer;" title="Chọn làm đáp án đúng">
-                            <span style="font-weight: 700; width: 25px;">B.</span>
-                            <input type="text" name="optionContent" th:value="${#lists.size(question.answers) > 1 ? question.answers[1].content : ''}" placeholder="Nhập đáp án B..." required style="flex: 1; padding: 0.6rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
-                        </div>
-
-                        <!-- Đáp án C -->
-                        <div style="display: flex; align-items: center; gap: 0.75rem;">
-                            <input type="radio" name="correctIndex" value="2" th:checked="${#lists.size(question.answers) > 2 && question.answers[2].isCorrect}" style="transform: scale(1.3); cursor: pointer;" title="Chọn làm đáp án đúng">
-                            <span style="font-weight: 700; width: 25px;">C.</span>
-                            <input type="text" name="optionContent" th:value="${#lists.size(question.answers) > 2 ? question.answers[2].content : ''}" placeholder="Nhập đáp án C (tùy chọn)..." style="flex: 1; padding: 0.6rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
-                        </div>
-
-                        <!-- Đáp án D -->
-                        <div style="display: flex; align-items: center; gap: 0.75rem;">
-                            <input type="radio" name="correctIndex" value="3" th:checked="${#lists.size(question.answers) > 3 && question.answers[3].isCorrect}" style="transform: scale(1.3); cursor: pointer;" title="Chọn làm đáp án đúng">
-                            <span style="font-weight: 700; width: 25px;">D.</span>
-                            <input type="text" name="optionContent" th:value="${#lists.size(question.answers) > 3 ? question.answers[3].content : ''}" placeholder="Nhập đáp án D (tùy chọn)..." style="flex: 1; padding: 0.6rem; border: 1px solid var(--border-color); border-radius: 0.375rem;">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Giải thích chi tiết (Explanation) -->
-                <div style="margin-bottom: 1.5rem;">
-                    <label style="display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.35rem;">Giải thích chi tiết (Hiển thị sau khi nộp bài)</label>
-                    <textarea th:field="*{explanation}" rows="3" placeholder="Giải thích lý do vì sao đáp án này đúng..." style="width: 100%; padding: 0.65rem; border: 1px solid var(--border-color); border-radius: 0.375rem;"></textarea>
-                </div>
-
-                <!-- Trạng thái -->
-                <div style="margin-bottom: 1.5rem;">
-                    <label style="display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.35rem;">Trạng thái câu hỏi</label>
-                    <select th:field="*{status}" style="width: 200px; padding: 0.6rem; border: 1px solid var(--border-color); border-radius: 0.375rem; background: #ffffff;">
-                        <option value="ACTIVE">ACTIVE</option>
-                        <option value="INACTIVE">INACTIVE</option>
-                    </select>
-                </div>
-
-                <div style="display: flex; gap: 1rem;">
-                    <button type="submit" class="btn btn-primary" style="padding: 0.65rem 1.5rem;">💾 Lưu câu hỏi</button>
-                    <a th:href="@{/content/questions}" class="btn btn-outline" style="padding: 0.65rem 1.5rem;">Hủy</a>
-                </div>
-            </form>
+        <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show" role="alert">
+            <span th:text="${errorMessage}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
 
+        <div class="card shadow-sm border-0" style="max-width: 900px;">
+            <div class="card-body p-4">
+                <form th:action="${questionForm.id != null ? '/content/questions/' + questionForm.id : '/content/questions/new'}"
+                      th:object="${questionForm}" method="post" id="questionFormSubmit">
+                    <input type="hidden" th:field="*{id}">
+
+                    <!-- Môn học & Bài học & Mức độ -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label for="subjectSelect" class="form-label fw-bold small">Môn học *</label>
+                            <select th:field="*{subjectId}" id="subjectSelect" required onchange="handleSubjectChange(this.value)" class="form-select">
+                                <option value="">-- Chọn môn học --</option>
+                                <option th:each="s : ${subjects}" th:value="${s.id}" th:text="${s.name}"></option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="lessonSelect" class="form-label fw-bold small">Bài học liên kết</label>
+                            <select th:field="*{lessonId}" id="lessonSelect" class="form-select">
+                                <option value="">-- Không gắn cụ thể --</option>
+                                <option th:each="l : ${lessons}" th:value="${l.id}" th:text="${l.name}"></option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label for="levelSelect" class="form-label fw-bold small">Mức độ câu hỏi *</label>
+                            <select th:field="*{levelId}" id="levelSelect" required class="form-select">
+                                <option th:each="lvl : ${levels}" th:value="${lvl.id}" th:text="${lvl.name}"></option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Chuẩn đầu ra (Dimension Multi-select) -->
+                    <div class="mb-3" th:if="${not #lists.isEmpty(dimensions)}">
+                        <label class="form-label fw-bold small">Chuẩn đầu ra (Dimensions)</label>
+                        <div class="d-flex flex-wrap gap-3 p-3 bg-light rounded border">
+                            <div th:each="dim : ${dimensions}" class="form-check">
+                                <input class="form-check-input" type="checkbox" name="dimensionIds" th:value="${dim.id}"
+                                       th:id="'dim-' + ${dim.id}"
+                                       th:checked="${questionForm.dimensionIds != null && questionForm.dimensionIds.contains(dim.id)}">
+                                <label class="form-check-label fw-semibold" th:for="'dim-' + ${dim.id}" th:text="${dim.name}">
+                                    Tư duy OOP
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Nội dung câu hỏi -->
+                    <div class="mb-3">
+                        <label for="questionContent" class="form-label fw-bold">Nội dung câu hỏi *</label>
+                        <textarea th:field="*{content}" id="questionContent" rows="4" required
+                                  placeholder="Nhập nội dung câu hỏi trắc nghiệm tại đây..." class="form-control"></textarea>
+                    </div>
+
+                    <!-- Media đính kèm (URL + Xem trước) -->
+                    <div class="p-3 bg-light rounded border mb-4">
+                        <label class="form-label fw-bold small">Media đính kèm (Hình ảnh / Video / Audio)</label>
+                        <div class="row g-3 align-items-center">
+                            <div class="col-md-4">
+                                <select th:field="*{mediaType}" id="mediaTypeSelect" class="form-select" onchange="updateMediaPreview()">
+                                    <option value="NONE">Không có</option>
+                                    <option value="IMAGE">Hình ảnh (Image)</option>
+                                    <option value="VIDEO">Video</option>
+                                    <option value="AUDIO">Âm thanh (Audio)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-8">
+                                <input type="url" th:field="*{mediaUrl}" id="mediaUrlInput"
+                                       placeholder="https://..." oninput="updateMediaPreview()" class="form-control">
+                            </div>
+                        </div>
+
+                        <div id="mediaPreviewContainer" class="mt-3 text-center" style="display: none;">
+                            <img id="imagePreview" src="" alt="Preview" class="img-fluid rounded border" style="max-height: 200px; display: none;">
+                            <video id="videoPreview" controls class="rounded border" style="max-height: 200px; max-width: 100%; display: none;"></video>
+                            <audio id="audioPreview" controls class="w-100 mt-2" style="display: none;"></audio>
+                        </div>
+                    </div>
+
+                    <!-- ============================================================ -->
+                    <!-- ANSWER OPTIONS SUB-UI (Add, Edit, Delete, Mark Correct)      -->
+                    <!-- ============================================================ -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <label class="form-label fw-bold mb-0">📋 Các phương án trả lời (Answer Options) *</label>
+                                <span class="d-block text-muted small">Tối thiểu 2 đáp án, tích chọn nút tròn vào đúng 1 phương án chính xác.</span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="addOptionRow()">
+                                ➕ Thêm phương án
+                            </button>
+                        </div>
+
+                        <div id="optionsContainer" class="d-flex flex-direction-column gap-2 flex-column">
+                            <!-- Prepopulated options via Thymeleaf or JS -->
+                            <div th:each="opt, iter : ${questionForm.optionContents}" class="option-row input-group align-items-center">
+                                <span class="input-group-text bg-white">
+                                    <input type="radio" name="correctIndex" th:value="${iter.index}"
+                                           th:checked="${questionForm.correctIndex != null && questionForm.correctIndex == iter.index}"
+                                           class="form-check-input mt-0 correct-radio" required title="Đánh dấu đáp án đúng">
+                                </span>
+                                <span class="input-group-text fw-bold text-muted option-label" th:text="${#strings.substring('ABCDEFGHIJKLMNOPQRSTUVWXYZ', iter.index, iter.index + 1) + '.'}">A.</span>
+                                <input type="text" name="optionContents" th:value="${opt}" required placeholder="Nhập nội dung đáp án..." class="form-control">
+                                <button type="button" class="btn btn-outline-danger btn-delete-option" onclick="removeOptionRow(this)" title="Xóa phương án">
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Giải thích chi tiết -->
+                    <div class="mb-3">
+                        <label for="questionExplanation" class="form-label fw-bold">Giải thích chi tiết (Explanation)</label>
+                        <textarea th:field="*{explanation}" id="questionExplanation" rows="3"
+                                  placeholder="Giải thích lý do vì sao đáp án này là chính xác..." class="form-control"></textarea>
+                    </div>
+
+                    <!-- Trạng thái -->
+                    <div class="mb-4">
+                        <label for="questionStatus" class="form-label fw-bold small">Trạng thái câu hỏi</label>
+                        <select th:field="*{status}" id="questionStatus" class="form-select" style="max-width: 200px;">
+                            <option value="ACTIVE">Active</option>
+                            <option value="INACTIVE">Inactive</option>
+                        </select>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a th:href="@{/content/questions}" class="btn btn-outline-secondary px-4">← Quay lại / Hủy</a>
+                        <button type="submit" class="btn btn-primary px-4" id="btn-save-question">💾 Lưu câu hỏi</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- JAVASCRIPT: Answer Options Sub-UI & Media Preview & Subject Filter -->
         <script>
             function handleSubjectChange(subjectId) {
                 if (subjectId) {
                     window.location.href = window.location.pathname + '?subjectId=' + subjectId;
                 }
             }
+
+            function reindexOptions() {
+                const labels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+                const rows = document.querySelectorAll('.option-row');
+                rows.forEach((row, idx) => {
+                    const labelSpan = row.querySelector('.option-label');
+                    if (labelSpan && idx < labels.length) {
+                        labelSpan.textContent = labels[idx] + '.';
+                    }
+                    const radio = row.querySelector('.correct-radio');
+                    if (radio) {
+                        radio.value = idx;
+                    }
+                });
+
+                // Disable delete button if <= 2 options
+                const deleteBtns = document.querySelectorAll('.btn-delete-option');
+                deleteBtns.forEach(btn => {
+                    btn.disabled = (rows.length <= 2);
+                });
+            }
+
+            function addOptionRow() {
+                const container = document.getElementById('optionsContainer');
+                const rowCount = container.querySelectorAll('.option-row').length;
+                if (rowCount >= 10) {
+                    alert('Tối đa 10 phương án lựa chọn.');
+                    return;
+                }
+
+                const newRow = document.createElement('div');
+                newRow.className = 'option-row input-group align-items-center';
+                newRow.innerHTML = `
+                    <span class="input-group-text bg-white">
+                        <input type="radio" name="correctIndex" value="${rowCount}" class="form-check-input mt-0 correct-radio" required title="Đánh dấu đáp án đúng">
+                    </span>
+                    <span class="input-group-text fw-bold text-muted option-label"></span>
+                    <input type="text" name="optionContents" required placeholder="Nhập nội dung đáp án..." class="form-control">
+                    <button type="button" class="btn btn-outline-danger btn-delete-option" onclick="removeOptionRow(this)" title="Xóa phương án">
+                        🗑️
+                    </button>
+                `;
+                container.appendChild(newRow);
+                reindexOptions();
+            }
+
+            function removeOptionRow(btn) {
+                const rows = document.querySelectorAll('.option-row');
+                if (rows.length <= 2) {
+                    alert('Câu hỏi phải có tối thiểu 2 phương án trả lời!');
+                    return;
+                }
+                const row = btn.closest('.option-row');
+                const radio = row.querySelector('.correct-radio');
+                const wasChecked = radio && radio.checked;
+                row.remove();
+                reindexOptions();
+
+                // If deleted row was checked, check the first row
+                if (wasChecked) {
+                    const firstRadio = document.querySelector('.correct-radio');
+                    if (firstRadio) firstRadio.checked = true;
+                }
+            }
+
+            function updateMediaPreview() {
+                const type = document.getElementById('mediaTypeSelect').value;
+                const url = document.getElementById('mediaUrlInput').value.trim();
+                const container = document.getElementById('mediaPreviewContainer');
+                const img = document.getElementById('imagePreview');
+                const video = document.getElementById('videoPreview');
+                const audio = document.getElementById('audioPreview');
+
+                img.style.display = 'none';
+                video.style.display = 'none';
+                audio.style.display = 'none';
+
+                if (!url || type === 'NONE') {
+                    container.style.display = 'none';
+                    return;
+                }
+
+                container.style.display = 'block';
+                if (type === 'IMAGE') {
+                    img.src = url;
+                    img.style.display = 'inline-block';
+                } else if (type === 'VIDEO') {
+                    video.src = url;
+                    video.style.display = 'inline-block';
+                } else if (type === 'AUDIO') {
+                    audio.src = url;
+                    audio.style.display = 'inline-block';
+                }
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+                reindexOptions();
+                updateMediaPreview();
+            });
         </script>
     </div>
 </body>

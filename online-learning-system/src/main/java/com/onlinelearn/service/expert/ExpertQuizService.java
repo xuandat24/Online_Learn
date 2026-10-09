@@ -1,8 +1,10 @@
-package com.onlinelearn.service;
+package com.onlinelearn.service.expert;
 
+import com.onlinelearn.dto.expert.QuizFormDTO;
 import com.onlinelearn.entity.*;
 import com.onlinelearn.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,7 +14,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class QuizContentService {
+public class ExpertQuizService {
 
     private final QuizRepository quizRepository;
     private final QuizQuestionRepository quizQuestionRepository;
@@ -24,12 +26,9 @@ public class QuizContentService {
     private final QuestionLevelRepository levelRepository;
     private final TestTypeRepository testTypeRepository;
 
-    // ─────────────────────────── READ ───────────────────────────
-
-    public List<Quiz> getQuizzesForUser(User currentUser, Long subjectId, Long quizTypeId, String keyword) {
+    public List<Quiz> getQuizzesForExpert(User currentUser, Long subjectId, Long quizTypeId, String keyword) {
         Long ownerId = null;
-        if (currentUser != null && currentUser.getRole() != null
-                && "EXPERT".equals(currentUser.getRole().getCode())) {
+        if (currentUser != null) {
             ownerId = currentUser.getId();
         }
         return quizRepository.searchQuizzes(ownerId, subjectId, quizTypeId, keyword);
@@ -40,59 +39,84 @@ public class QuizContentService {
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy bài Quiz ID: " + id));
     }
 
-    /**
-     * Lấy danh sách Subject mà user có thể tạo Quiz.
-     * EXPERT chỉ thấy Subject mình sở hữu; ADMIN thấy tất cả.
-     */
-    public List<Subject> getSubjectsForUser(User currentUser) {
-        if (currentUser != null && currentUser.getRole() != null
-                && "EXPERT".equals(currentUser.getRole().getCode())) {
+    public Quiz getQuizById(Long id, User currentUser) {
+        Quiz quiz = getQuizById(id);
+        validateQuizOwnership(quiz, currentUser);
+        return quiz;
+    }
+
+    public QuizFormDTO toFormDTO(Quiz quiz) {
+        List<Long> qIds = quiz.getQuizQuestions() != null
+                ? quiz.getQuizQuestions().stream().map(qq -> qq.getQuestion().getId()).toList()
+                : new ArrayList<>();
+
+        return QuizFormDTO.builder()
+                .id(quiz.getId())
+                .subjectId(quiz.getSubject() != null ? quiz.getSubject().getId() : null)
+                .name(quiz.getName())
+                .levelId(quiz.getLevel() != null ? quiz.getLevel().getId() : null)
+                .quizTypeId(quiz.getQuizType() != null ? quiz.getQuizType().getId() : null)
+                .duration(quiz.getDuration() != null ? quiz.getDuration() : 15)
+                .passRate(quiz.getPassRate() != null ? quiz.getPassRate() : 50.0)
+                .description(quiz.getDescription())
+                .questionIds(qIds)
+                .build();
+    }
+
+    public List<Subject> getSubjectsForExpert(User currentUser) {
+        if (currentUser != null) {
             return subjectRepository.findByOwnerId(currentUser.getId());
         }
         return subjectRepository.findAll();
     }
 
-    // ─────────────────────────── CREATE / UPDATE ───────────────────────────
-
     /**
      * Tạo mới hoặc cập nhật Quiz kèm danh sách câu hỏi.
-     * KHÔNG kiểm tra QuizAttempt — cho phép sửa tự do kể cả khi đã có lượt thi.
+     * Quy tắc Section 6 SKILLANDRULES:
+     * Expert có full CRUD trên Quiz — không chặn sửa/xóa kể cả khi đã có QuizAttempt.
      */
     @Transactional
-    public Quiz saveQuiz(Quiz formQuiz, Long subjectId, Long levelId, Long typeId, List<Long> questionIds) {
-        Subject subject = subjectRepository.findById(subjectId)
+    public Quiz saveQuiz(QuizFormDTO formDTO, User currentUser) {
+        if (formDTO.getSubjectId() == null) {
+            throw new IllegalArgumentException("Môn học không được để trống!");
+        }
+
+        Subject subject = subjectRepository.findById(formDTO.getSubjectId())
                 .orElseThrow(() -> new IllegalArgumentException("Môn học không tồn tại"));
 
+        validateSubjectOwnership(subject, currentUser);
+
         Quiz quiz;
-        if (formQuiz.getId() != null) {
-            quiz = getQuizById(formQuiz.getId());
+        if (formDTO.getId() != null) {
+            quiz = getQuizById(formDTO.getId(), currentUser);
         } else {
             quiz = new Quiz();
         }
 
         quiz.setSubject(subject);
-        quiz.setName(formQuiz.getName());
-        quiz.setDuration(formQuiz.getDuration() != null ? formQuiz.getDuration() : 15);
-        quiz.setPassRate(formQuiz.getPassRate() != null ? formQuiz.getPassRate() : 50.0);
-        quiz.setDescription(formQuiz.getDescription());
+        quiz.setName(formDTO.getName());
+        quiz.setDuration(formDTO.getDuration() != null ? formDTO.getDuration() : 15);
+        quiz.setPassRate(formDTO.getPassRate() != null ? formDTO.getPassRate() : 50.0);
+        quiz.setDescription(formDTO.getDescription());
 
-        if (levelId != null) {
-            quiz.setLevel(levelRepository.findById(levelId).orElse(null));
+        if (formDTO.getLevelId() != null) {
+            quiz.setLevel(levelRepository.findById(formDTO.getLevelId()).orElse(null));
         } else {
             quiz.setLevel(null);
         }
 
-        if (typeId != null) {
-            quiz.setQuizType(testTypeRepository.findById(typeId).orElse(null));
+        if (formDTO.getQuizTypeId() != null) {
+            quiz.setQuizType(testTypeRepository.findById(formDTO.getQuizTypeId()).orElse(null));
         } else {
             quiz.setQuizType(null);
         }
 
         quiz = quizRepository.save(quiz);
 
-        // Đồng bộ QuizQuestion: xóa hết rồi insert lại theo danh sách mới
+        // Đồng bộ QuizQuestion
         quizQuestionRepository.deleteByQuizId(quiz.getId());
 
+        List<Long> questionIds = formDTO.getQuestionIds();
         if (questionIds != null && !questionIds.isEmpty()) {
             List<QuizQuestion> quizQuestions = new ArrayList<>();
             int order = 1;
@@ -112,23 +136,18 @@ public class QuizContentService {
         return quiz;
     }
 
-    // ─────────────────────────── DELETE ───────────────────────────
-
     /**
-     * Xóa Quiz theo thứ tự cascade an toàn:
-     *   1. Xóa QuizAnswer (theo các QuizAttempt của quiz này)
-     *   2. Xóa QuizAttempt
-     *   3. Xóa QuizQuestion
-     *   4. Set Lesson.quiz = null cho Lesson đang trỏ tới quiz này
-     *   5. Xóa Quiz
-     *
-     * KHÔNG chặn xóa khi đã có QuizAttempt.
+     * Xóa Quiz an toàn theo thứ tự:
+     * 1. Xóa QuizAnswer theo attemptIds
+     * 2. Xóa QuizAttempt
+     * 3. Xóa QuizQuestion
+     * 4. Gỡ liên kết Lesson.quiz = null
+     * 5. Xóa Quiz
      */
     @Transactional
-    public DeleteQuizResult deleteQuiz(Long quizId) {
-        Quiz quiz = getQuizById(quizId);
+    public DeleteQuizResult deleteQuiz(Long quizId, User currentUser) {
+        Quiz quiz = getQuizById(quizId, currentUser);
 
-        // 1. Xóa QuizAnswer theo attemptIds
         List<QuizAttempt> attempts = quizAttemptRepository.findByQuizId(quizId);
         if (!attempts.isEmpty()) {
             List<Long> attemptIds = attempts.stream()
@@ -137,30 +156,32 @@ public class QuizContentService {
             quizAnswerRepository.deleteByAttemptIdIn(attemptIds);
         }
 
-        // 2. Xóa QuizAttempt
         quizAttemptRepository.deleteAll(attempts);
-
-        // 3. Xóa QuizQuestion
         quizQuestionRepository.deleteByQuizId(quizId);
 
-        // 4. Set Lesson.quiz = null cho những Lesson đang gắn quiz này
         List<Lesson> linkedLessons = lessonRepository.findByQuizId(quizId);
         for (Lesson lesson : linkedLessons) {
             lesson.setQuiz(null);
         }
         lessonRepository.saveAll(linkedLessons);
 
-        // 5. Xóa Quiz
         quizRepository.delete(quiz);
 
         return new DeleteQuizResult(linkedLessons.stream().map(Lesson::getName).collect(Collectors.toList()));
     }
 
-    // ─────────────────────────── INNER RESULT CLASS ───────────────────────────
+    private void validateQuizOwnership(Quiz quiz, User currentUser) {
+        validateSubjectOwnership(quiz.getSubject(), currentUser);
+    }
 
-    /**
-     * Trả về thông tin lesson bị gỡ quiz (để hiển thị thông báo).
-     */
+    private void validateSubjectOwnership(Subject subject, User currentUser) {
+        if (currentUser != null && currentUser.getRole() != null && "EXPERT".equals(currentUser.getRole().getCode())) {
+            if (subject == null || subject.getOwner() == null || !subject.getOwner().getId().equals(currentUser.getId())) {
+                throw new AccessDeniedException("Bạn không có quyền quản trị bài Quiz này!");
+            }
+        }
+    }
+
     public record DeleteQuizResult(List<String> detachedLessonNames) {
         public boolean hasDetachedLessons() {
             return detachedLessonNames != null && !detachedLessonNames.isEmpty();
