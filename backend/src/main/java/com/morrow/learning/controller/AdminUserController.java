@@ -10,6 +10,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -30,17 +32,25 @@ public class AdminUserController {
     }
 
     @GetMapping
-    public List<AdminUserView> list() {
-        return adminUserService.list();
+    public List<AdminUserView> list(
+            @RequestParam(required = false) Role role,
+            @RequestParam(required = false) String search) {
+        return adminUserService.list(role, search);
+    }
+
+    @GetMapping("/{id}")
+    public AdminUserView get(@PathVariable Long id) {
+        return adminUserService.getUser(id);
     }
 
     public record CreateUserRequest(
             @NotBlank @Size(max = 120) String fullName,
             @NotBlank @Email @Size(max = 190) String email,
-            @NotBlank @Size(min = 8) String password,
+            String password,
             Role role,
             @Size(max = 30) String phone,
             @Size(max = 20) String gender) {}
+
     public record UpdateUserRequest(
             @NotBlank @Size(max = 120) String fullName,
             @Size(max = 30) String phone,
@@ -78,5 +88,11 @@ public class AdminUserController {
     @PatchMapping("/{id}/role")
     public AdminUserView updateRole(@PathVariable Long id, @Valid @RequestBody RoleUpdateRequest request) {
         return adminUserService.updateRole(id, request.role());
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id) {
+        adminUserService.deleteUser(id);
     }
 }

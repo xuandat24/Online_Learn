@@ -32,6 +32,12 @@ public class QuizAnswer {
     private int selectedOptionIndex;
 
     @Column(nullable = false)
+    private boolean markedForReview = false;
+
+    @Column(nullable = false)
+    private boolean answerPeeked = false;
+
+    @Column(nullable = false)
     private LocalDateTime updatedAt;
 
     protected QuizAnswer() {
@@ -39,6 +45,8 @@ public class QuizAnswer {
 
     public QuizAnswer(QuizQuestion question, int selectedOptionIndex) {
         this.question = question;
+        this.markedForReview = false;
+        this.answerPeeked = false;
         update(selectedOptionIndex);
     }
 
@@ -51,6 +59,10 @@ public class QuizAnswer {
     public QuizAttempt getAttempt() { return attempt; }
     public QuizQuestion getQuestion() { return question; }
     public int getSelectedOptionIndex() { return selectedOptionIndex; }
+    public boolean isMarkedForReview() { return markedForReview; }
+    public void setMarkedForReview(boolean markedForReview) { this.markedForReview = markedForReview; }
+    public boolean isAnswerPeeked() { return answerPeeked; }
+    public void setAnswerPeeked(boolean answerPeeked) { this.answerPeeked = answerPeeked; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setAttempt(QuizAttempt attempt) { this.attempt = attempt; }
 }

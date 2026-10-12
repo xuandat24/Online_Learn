@@ -206,7 +206,8 @@ public class CourseContentService {
     }
 
     @Transactional
-    public QuizAttemptView saveAnswer(Long attemptId, Long questionId, String email, int selectedOptionIndex) {
+    public QuizAttemptView saveAnswer(Long attemptId, Long questionId, String email, int selectedOptionIndex,
+                                      Boolean markedForReview, Boolean answerPeeked) {
         QuizAttempt attempt = findOwnedAttempt(attemptId, email);
         requireAccess(attempt.getQuiz().getCourse().getId(), email);
         if (attempt.getStatus() != AttemptStatus.IN_PROGRESS) {
@@ -220,11 +221,29 @@ public class CourseContentService {
         }
         QuizAnswer answer = attempt.answerFor(questionId);
         if (answer == null) {
-            attempt.addAnswer(new QuizAnswer(question, selectedOptionIndex));
+            answer = new QuizAnswer(question, selectedOptionIndex);
+            attempt.addAnswer(answer);
         } else {
             answer.update(selectedOptionIndex);
         }
+        if (markedForReview != null) {
+            answer.setMarkedForReview(markedForReview);
+        }
+        if (answerPeeked != null) {
+            answer.setAnswerPeeked(answerPeeked);
+        }
         return QuizAttemptView.from(attempt);
+    }
+
+    @Transactional
+    public QuizAttemptView redoAttempt(Long quizId, String email) {
+        Quiz quiz = quizRepository.findById(quizId)
+                .filter(Quiz::isPublished)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Quiz not found"));
+        requireAccess(quiz.getCourse().getId(), email);
+        User user = requireUser(email);
+        QuizAttempt freshAttempt = quizAttemptRepository.save(new QuizAttempt(user, quiz));
+        return QuizAttemptView.from(freshAttempt);
     }
 
     @Transactional

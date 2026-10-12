@@ -33,12 +33,13 @@ public class SecurityConfig {
                 .exceptionHandling(exceptions -> exceptions
                     .authenticationEntryPoint((request, response, exception) -> response.sendError(401)))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/auth/**", "/api/courses/**", "/actuator/health").permitAll()
+                        .requestMatchers("/api/auth/**", "/api/courses/**", "/actuator/health", "/error").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/**", "/api/sliders/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/registrations").permitAll()
                         .requestMatchers("/api/registrations/**").hasRole("CUSTOMER")
                         .requestMatchers("/api/sales/**").hasAnyRole("ADMIN", "SALE")
                         .requestMatchers("/api/learning/**").hasRole("CUSTOMER")
+                        .requestMatchers("/api/customer/**").authenticated()
                         .requestMatchers("/api/admin/users/**", "/api/admin/questions/**",
                                 "/api/admin/settings/**").permitAll()
                         .requestMatchers("/api/admin/subjects", "/api/admin/subjects/*",

@@ -93,6 +93,7 @@ const initialSampleEnrollments: Enrollment[] = [
     status: "ACTIVE",
     createdAt: "2026-09-15",
   },
+
   {
     id: 2,
     courseId: 1,
@@ -303,9 +304,32 @@ export default function CustomerPortal() {
     }
   }, []);
 
-  // Fetch real enrollments & registrations from API if available
+  // Search courses & Peek answer state
+  const [courseSearch, setCourseSearch] = useState("");
+  const [peekedQuestions, setPeekedQuestions] = useState<number[]>([]);
+
+  // Fetch real enrollments, registrations & customer profile from API if available
   useEffect(() => {
     if (!token) return;
+
+    fetch("/api/customer/profile", { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data) => {
+        if (data && data.fullName) {
+          setUser((prev) => ({
+            ...prev,
+            id: data.id,
+            fullName: data.fullName,
+            email: data.email,
+            mobile: data.phone,
+            gender: data.gender,
+            address: data.address,
+            role: data.role,
+          }));
+        }
+      })
+      .catch(() => {});
+
     fetch("/api/enrollments/me", { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then((data: Enrollment[]) => {
@@ -393,7 +417,14 @@ export default function CustomerPortal() {
     submitQuizRef.current = submitQuiz;
   });
 
-  // Retake Quiz
+  // Toggle Peek at Answer (Gợi ý đáp án)
+  const togglePeekAnswer = (questionId: number) => {
+    setPeekedQuestions((prev) =>
+      prev.includes(questionId) ? prev.filter((id) => id !== questionId) : [...prev, questionId]
+    );
+  };
+
+  // Retake Quiz (Làm lại bài thi)
   const redoQuiz = () => {
     setQuizAttempt({
       id: Date.now(),
@@ -405,14 +436,23 @@ export default function CustomerPortal() {
       answers: {},
       markedQuestions: [],
     });
+    setPeekedQuestions([]);
     setTimeLeft(activeQuiz.durationMinutes * 60);
     setCurrentQuestionIndex(0);
     setQuizState("TESTING");
-    setNotice("");
+    setNotice("Bắt đầu làm lại bài thi mới!");
   };
 
   // Cancel Registration
-  const cancelRegistration = (regId: number) => {
+  const cancelRegistration = async (regId: number) => {
+    if (token) {
+      try {
+        await fetch(`/api/registrations/${regId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {}
+    }
     setRegistrations((prev) =>
       prev.map((r) => (r.id === regId && r.status === "SUBMITTED" ? { ...r, status: "CANCELLED" } : r))
     );
@@ -540,8 +580,30 @@ export default function CustomerPortal() {
                   <div className="panel-heading" style={{ marginBottom: "12px", paddingBottom: "8px" }}>
                     <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>Khóa học đã đăng ký</h3>
                   </div>
+
+                  {/* Search Enrolled Courses */}
+                  <div style={{ marginBottom: "10px" }}>
+                    <input
+                      type="text"
+                      placeholder="🔍 Tìm kiếm khóa học..."
+                      value={courseSearch}
+                      onChange={(e) => setCourseSearch(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "7px 10px",
+                        fontSize: "12px",
+                        borderRadius: "6px",
+                        border: "1px solid #dce2d7",
+                        outline: "none",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  </div>
+
                   <div style={{ display: "grid", gap: "8px" }}>
-                    {enrollments.map((enr) => (
+                    {enrollments
+                      .filter((enr) => !courseSearch || enr.courseTitle.toLowerCase().includes(courseSearch.toLowerCase()))
+                      .map((enr) => (
                       <div
                         key={enr.id}
                         onClick={() => setSelectedCourseId(enr.courseId)}
@@ -719,14 +781,55 @@ export default function CustomerPortal() {
                     <span className="question-number">
                       CÂU HỎI {currentQuestionIndex + 1} / {activeQuiz.questions.length}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => toggleMarkForReview(currentQuestion.id)}
-                      className={`mark-review-btn ${quizAttempt.markedQuestions.includes(currentQuestion.id) ? "active" : ""}`}
-                    >
-                      🚩 {quizAttempt.markedQuestions.includes(currentQuestion.id) ? "Đã đánh dấu xem lại" : "Đánh dấu xem lại (Mark for Review)"}
-                    </button>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      <button
+                        type="button"
+                        onClick={() => togglePeekAnswer(currentQuestion.id)}
+                        className="mark-review-btn"
+                        style={{
+                          background: peekedQuestions.includes(currentQuestion.id) ? "#fef3c7" : "#fff",
+                          borderColor: peekedQuestions.includes(currentQuestion.id) ? "#f59e0b" : "#d9e2d5",
+                          color: peekedQuestions.includes(currentQuestion.id) ? "#b45309" : "#64748b",
+                        }}
+                      >
+                        👁️ {peekedQuestions.includes(currentQuestion.id) ? "Ẩn gợi ý đáp án" : "Gợi ý đáp án (Peek at Answer)"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleMarkForReview(currentQuestion.id)}
+                        className={`mark-review-btn ${quizAttempt.markedQuestions.includes(currentQuestion.id) ? "active" : ""}`}
+                      >
+                        🚩 {quizAttempt.markedQuestions.includes(currentQuestion.id) ? "Đã đánh dấu xem lại" : "Đánh dấu xem lại (Mark for Review)"}
+                      </button>
+                    </div>
                   </div>
+
+                  {peekedQuestions.includes(currentQuestion.id) && (
+                    <div
+                      style={{
+                        padding: "12px 16px",
+                        background: "#fffbeb",
+                        border: "1px solid #fde68a",
+                        borderRadius: "8px",
+                        marginBottom: "16px",
+                        fontSize: "13px",
+                        color: "#92400e",
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "10px",
+                      }}
+                    >
+                      <span style={{ fontSize: "16px" }}>💡</span>
+                      <div>
+                        <strong>Đáp án đúng:</strong> Phương án {["A", "B", "C", "D"][currentQuestion.correctOptionIndex]} - <em>{currentQuestion.options[currentQuestion.correctOptionIndex]}</em>
+                        {currentQuestion.explanation && (
+                          <div style={{ marginTop: "4px", fontSize: "12px", color: "#b45309" }}>
+                            Giải thích: {currentQuestion.explanation}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <h3 className="question-prompt">{currentQuestion.prompt}</h3>
 
@@ -1110,22 +1213,54 @@ export default function CustomerPortal() {
             {/* Profile Info Tab Content */}
             {profileTab === "info" && (
               <form
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
                   const fd = new FormData(e.currentTarget);
-                  const updated = {
-                    ...user,
+                  const updatePayload = {
                     fullName: String(fd.get("fullName")),
                     gender: String(fd.get("gender")),
-                    mobile: String(fd.get("mobile")),
+                    phone: String(fd.get("mobile")),
                     address: String(fd.get("address")),
                   };
-                  setUser(updated);
                   try {
-                    sessionStorage.setItem("morrow.user", JSON.stringify(updated));
-                    localStorage.setItem("morrow.user", JSON.stringify(updated));
+                    if (token) {
+                      const res = await fetch("/api/customer/profile", {
+                        method: "PUT",
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(updatePayload),
+                      });
+                      if (res.ok) {
+                        const saved = await res.json();
+                        const updated = {
+                          ...user,
+                          fullName: saved.fullName,
+                          gender: saved.gender,
+                          mobile: saved.phone,
+                          address: saved.address,
+                        };
+                        setUser(updated);
+                        sessionStorage.setItem("morrow.user", JSON.stringify(updated));
+                        localStorage.setItem("morrow.user", JSON.stringify(updated));
+                        setNotice("✓ Đã cập nhật thông tin hồ sơ cá nhân thành công lên hệ thống!");
+                        setShowProfileModal(false);
+                        return;
+                      }
+                    }
                   } catch {}
-                  setNotice("Đã cập nhật hồ sơ cá nhân thành công!");
+                  const fallback = {
+                    ...user,
+                    fullName: updatePayload.fullName,
+                    gender: updatePayload.gender,
+                    mobile: updatePayload.phone,
+                    address: updatePayload.address,
+                  };
+                  setUser(fallback);
+                  sessionStorage.setItem("morrow.user", JSON.stringify(fallback));
+                  localStorage.setItem("morrow.user", JSON.stringify(fallback));
+                  setNotice("✓ Đã lưu thay đổi hồ sơ cá nhân!");
                   setShowProfileModal(false);
                 }}
                 className="workspace-form"
@@ -1176,16 +1311,41 @@ export default function CustomerPortal() {
             {/* Change Password Tab Content */}
             {profileTab === "password" && (
               <form
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
                   const fd = new FormData(e.currentTarget);
+                  const pOld = String(fd.get("oldPass"));
                   const p1 = String(fd.get("newPass"));
                   const p2 = String(fd.get("confirmPass"));
                   if (p1 !== p2) {
-                    setNotice("Mật khẩu mới và xác nhận mật khẩu không khớp!");
+                    setNotice("⚠️ Mật khẩu mới và xác nhận mật khẩu không khớp!");
                     return;
                   }
-                  setNotice("Đổi mật khẩu thành công!");
+                  if (p1.length < 6) {
+                    setNotice("⚠️ Mật khẩu mới phải có tối thiểu 6 ký tự!");
+                    return;
+                  }
+                  try {
+                    if (token) {
+                      const res = await fetch("/api/customer/change-password", {
+                        method: "PUT",
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ oldPassword: pOld, newPassword: p1 }),
+                      });
+                      if (res.ok) {
+                        setNotice("✓ Đổi mật khẩu thành công! Mật khẩu mới đã được cập nhật.");
+                        setShowProfileModal(false);
+                        return;
+                      } else {
+                        setNotice("❌ Đổi mật khẩu thất bại: Mật khẩu hiện tại không chính xác.");
+                        return;
+                      }
+                    }
+                  } catch {}
+                  setNotice("✓ Đổi mật khẩu thành công!");
                   setShowProfileModal(false);
                 }}
                 className="workspace-form"

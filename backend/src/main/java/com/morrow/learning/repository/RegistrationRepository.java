@@ -13,4 +13,5 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
     List<Registration> findAllByStatusOrderBySubmittedAtAsc(com.morrow.learning.domain.RegistrationStatus status);
     boolean existsByCourseIdAndEmailIgnoreCaseAndStatusIn(
             Long courseId, String email, Collection<RegistrationStatus> statuses);
+    boolean existsByCustomerId(Long customerId);
 }

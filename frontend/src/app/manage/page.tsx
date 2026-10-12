@@ -207,9 +207,157 @@ export default function AdminPortal() {
   const [showAddSliderModal, setShowAddSliderModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileTab, setProfileTab] = useState<"info" | "password">("info");
+  const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
+  const [viewingUser, setViewingUser] = useState<AdminUser | null>(null);
 
   // Notifications
   const [notice, setNotice] = useState("");
+
+  // Handle Create User / Customer
+  const handleCreateUser = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const payload = {
+      fullName: String(fd.get("fullName")),
+      email: String(fd.get("email")),
+      phone: String(fd.get("phone")),
+      gender: String(fd.get("gender")),
+      role: String(fd.get("role")),
+      password: String(fd.get("password") || "password123"),
+    };
+
+    if (token) {
+      try {
+        const res = await fetch("/api/admin/users", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          const created: AdminUser = await res.json();
+          setUsers((prev) => [created, ...prev]);
+          setShowAddUserModal(false);
+          setNotice(`✓ Đã tạo thành công tài khoản cho: ${created.fullName} (${created.role})!`);
+          return;
+        } else {
+          const err = await res.text();
+          setNotice("⚠️ Lỗi tạo tài khoản: " + err);
+          return;
+        }
+      } catch {}
+    }
+
+    const newUser: AdminUser = {
+      id: Date.now(),
+      fullName: payload.fullName,
+      email: payload.email,
+      phone: payload.phone,
+      gender: payload.gender,
+      role: payload.role,
+      status: "ACTIVE",
+      createdAt: new Date().toISOString().split("T")[0],
+    };
+    setUsers((prev) => [newUser, ...prev]);
+    setShowAddUserModal(false);
+    setNotice(`✓ Đã tạo tài khoản cho: ${newUser.fullName} (${newUser.role})!`);
+  };
+
+  // Handle Update User / Customer
+  const handleUpdateUser = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    const fd = new FormData(e.currentTarget);
+    const payload = {
+      fullName: String(fd.get("fullName")),
+      phone: String(fd.get("phone")),
+      gender: String(fd.get("gender")),
+      role: String(fd.get("role")),
+      status: String(fd.get("status")),
+      password: String(fd.get("password") || ""),
+    };
+
+    if (token) {
+      try {
+        const res = await fetch(`/api/admin/users/${editingUser.id}`, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          const updated: AdminUser = await res.json();
+          setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+          setEditingUser(null);
+          setNotice(`✓ Đã cập nhật thành công tài khoản: ${updated.fullName}!`);
+          return;
+        }
+      } catch {}
+    }
+
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === editingUser.id
+          ? {
+              ...u,
+              fullName: payload.fullName,
+              phone: payload.phone,
+              gender: payload.gender,
+              role: payload.role,
+              status: payload.status as "ACTIVE" | "LOCKED",
+            }
+          : u
+      )
+    );
+    setEditingUser(null);
+    setNotice(`✓ Đã cập nhật tài khoản: ${payload.fullName}!`);
+  };
+
+  // Handle Delete User / Customer
+  const handleDeleteUser = async (id: number, name: string) => {
+    if (!confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn tài khoản ${name} (ID: #${id})?`)) return;
+    if (token) {
+      try {
+        await fetch(`/api/admin/users/${id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {}
+    }
+    setUsers((prev) => prev.filter((u) => u.id !== id));
+    setNotice(`✓ Đã xóa tài khoản ${name} khỏi hệ thống.`);
+  };
+
+  // Handle Toggle User Status
+  const handleToggleStatus = async (userItem: AdminUser) => {
+    const nextStatus = userItem.status === "ACTIVE" ? "LOCKED" : "ACTIVE";
+    if (token) {
+      try {
+        await fetch(`/api/admin/users/${userItem.id}`, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            fullName: userItem.fullName,
+            phone: userItem.phone,
+            gender: userItem.gender,
+            role: userItem.role,
+            status: nextStatus,
+          }),
+        });
+      } catch {}
+    }
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userItem.id ? { ...u, status: nextStatus } : u))
+    );
+    setNotice(`✓ Đã ${nextStatus === "ACTIVE" ? "kích hoạt" : "khóa"} tài khoản ${userItem.fullName}.`);
+  };
 
   // Restore user session
   useEffect(() => {
@@ -218,17 +366,25 @@ export default function AdminPortal() {
       const storedUser = sessionStorage.getItem("morrow.user") || localStorage.getItem("morrow.user");
       if (storedUser) {
         const parsed = JSON.parse(storedUser) as SessionUser;
-        setUser(parsed);
-        if (storedToken) setToken(storedToken);
+        setTimeout(() => {
+          setUser(parsed);
+          if (storedToken) setToken(storedToken);
 
-        // Auto select first allowed tab according to role
-        if (parsed.role === "SALE") setNavKey("sale_dashboard");
-        else if (parsed.role === "MARKETING") setNavKey("mkt_dashboard");
-        else if (parsed.role === "EXPERT") setNavKey("expert_subjects");
-        else setNavKey("admin_dashboard");
+          // Auto select first allowed tab according to role
+          if (parsed.role === "SALE") setNavKey("sale_dashboard");
+          else if (parsed.role === "MARKETING") setNavKey("mkt_dashboard");
+          else if (parsed.role === "EXPERT") setNavKey("expert_subjects");
+          else setNavKey("admin_dashboard");
+        }, 0);
       }
-    } catch {}
-    setIsLoaded(true);
+      setTimeout(() => {
+        setIsLoaded(true);
+      }, 0);
+    } catch {
+      setTimeout(() => {
+        setIsLoaded(true);
+      }, 0);
+    }
   }, []);
 
   // Fetch real users, subjects, registrations from backend
@@ -820,45 +976,72 @@ export default function AdminPortal() {
               <div>
                 <div className="eyebrow">
                   <span className="eyebrow-line"></span>
-                  <span>Quản lý thành viên</span>
+                  <span>Quản lý thành viên & Học viên</span>
                 </div>
-                <h1>Danh sách Tài khoản (Users Management)</h1>
+                <h1>Quản lý Người Dùng & Học Viên (User & Customer CRUD)</h1>
               </div>
-              <button onClick={() => setShowAddUserModal(true)} className="button button-dark">
-                + Thêm Người dùng mới
-              </button>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button
+                  onClick={() => {
+                    setUserRoleFilter("CUSTOMER");
+                    setShowAddUserModal(true);
+                  }}
+                  className="button button-accent"
+                >
+                  🎓 + Thêm Học Viên mới
+                </button>
+                <button onClick={() => setShowAddUserModal(true)} className="button button-dark">
+                  + Thêm Tài khoản khác
+                </button>
+              </div>
             </div>
 
-            {/* Search & Role Filters */}
+            {/* Role Quick Filter Tabs */}
+            <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
+              {[
+                { label: "Tất cả vai trò", val: "ALL" },
+                { label: "🎓 Học viên (Customer)", val: "CUSTOMER" },
+                { label: "👑 Quản trị viên (Admin)", val: "ADMIN" },
+                { label: "💼 Bán hàng (Sale)", val: "SALE" },
+                { label: "🔬 Chuyên gia (Expert)", val: "EXPERT" },
+                { label: "📢 Tiếp thị (Marketing)", val: "MARKETING" },
+              ].map((tab) => (
+                <button
+                  key={tab.val}
+                  type="button"
+                  onClick={() => setUserRoleFilter(tab.val)}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "20px",
+                    border: userRoleFilter === tab.val ? "2px solid var(--primary, #4f46e5)" : "1px solid #d8dfd4",
+                    background: userRoleFilter === tab.val ? "#eef2ff" : "#fff",
+                    color: userRoleFilter === tab.val ? "var(--primary, #4f46e5)" : "#475569",
+                    fontWeight: userRoleFilter === tab.val ? 700 : 500,
+                    fontSize: "12.5px",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Search & Statistics Panel */}
             <div className="workspace-panel" style={{ marginBottom: "20px", padding: "16px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr", gap: "16px", alignItems: "end" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "16px", alignItems: "center" }}>
                 <div>
-                  <label style={{ fontSize: "11px", fontWeight: 700, display: "block", marginBottom: "4px" }}>TÌM KIẾM</label>
                   <input
                     type="text"
-                    placeholder="Tìm theo tên, email, số điện thoại..."
+                    placeholder="🔍 Tìm kiếm nhanh theo họ tên, email, số điện thoại..."
                     value={userSearch}
                     onChange={(e) => setUserSearch(e.target.value)}
-                    style={{ width: "100%", padding: "8px 12px", border: "1px solid #d8dfd4", borderRadius: "4px" }}
+                    style={{ width: "100%", padding: "10px 14px", border: "1px solid #d8dfd4", borderRadius: "8px", fontSize: "13px" }}
                   />
                 </div>
-                <div>
-                  <label style={{ fontSize: "11px", fontWeight: 700, display: "block", marginBottom: "4px" }}>LỌC THEO VAI TRÒ</label>
-                  <select
-                    value={userRoleFilter}
-                    onChange={(e) => setUserRoleFilter(e.target.value)}
-                    style={{ width: "100%", padding: "8px 12px", border: "1px solid #d8dfd4", borderRadius: "4px" }}
-                  >
-                    <option value="ALL">Tất cả vai trò</option>
-                    <option value="ADMIN">ADMIN (Quản trị)</option>
-                    <option value="SALE">SALE (Bán hàng)</option>
-                    <option value="MARKETING">MARKETING (Tiếp thị)</option>
-                    <option value="EXPERT">EXPERT (Giảng viên)</option>
-                    <option value="CUSTOMER">CUSTOMER (Học viên)</option>
-                  </select>
-                </div>
-                <div style={{ textAlign: "right", fontSize: "12px", color: "var(--muted)" }}>
-                  Tìm thấy <strong>{filteredUsers.length}</strong> tài khoản
+                <div style={{ textAlign: "right", fontSize: "13px", color: "var(--muted)" }}>
+                  Đang hiển thị <strong>{filteredUsers.length}</strong> / <strong>{users.length}</strong> tài khoản
+                  {userRoleFilter === "CUSTOMER" && <span style={{ color: "var(--green)", fontWeight: 700 }}> (Chế độ Học viên)</span>}
                 </div>
               </div>
             </div>
@@ -868,38 +1051,35 @@ export default function AdminPortal() {
               <table className="workspace-table">
                 <thead>
                   <tr>
+                    <th>Mã ID</th>
                     <th>Họ và Tên</th>
                     <th>Email</th>
                     <th>Số điện thoại</th>
                     <th>Giới tính</th>
                     <th>Vai trò (Role)</th>
                     <th>Trạng thái</th>
-                    <th>Thao tác</th>
+                    <th>Thao tác (CRUD)</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredUsers.map((u) => (
                     <tr key={u.id}>
-                      <td><strong>{u.fullName}</strong></td>
-                      <td>{u.email}</td>
+                      <td><span style={{ fontSize: "11px", color: "var(--muted)" }}>#{u.id}</span></td>
+                      <td>
+                        <strong>{u.fullName}</strong>
+                        {u.role === "CUSTOMER" && (
+                          <span style={{ display: "inline-block", marginLeft: "6px", fontSize: "10px", color: "#4f46e5", background: "#e0e7ff", padding: "1px 6px", borderRadius: "10px" }}>
+                            Học viên
+                          </span>
+                        )}
+                      </td>
+                      <td><small>{u.email}</small></td>
                       <td>{u.phone}</td>
                       <td>{u.gender}</td>
                       <td>
-                        <select
-                          value={u.role}
-                          onChange={(e) => {
-                            const newR = e.target.value;
-                            setUsers((prev) => prev.map((item) => (item.id === u.id ? { ...item, role: newR } : item)));
-                            setNotice(`Đã đổi vai trò của ${u.fullName} sang: ${newR}`);
-                          }}
-                          style={{ padding: "4px 8px", border: "1px solid #c8d4c4", borderRadius: "4px", fontSize: "11px", fontWeight: 700 }}
-                        >
-                          <option value="ADMIN">ADMIN</option>
-                          <option value="SALE">SALE</option>
-                          <option value="MARKETING">MARKETING</option>
-                          <option value="EXPERT">EXPERT</option>
-                          <option value="CUSTOMER">CUSTOMER</option>
-                        </select>
+                        <span className={`role-badge role-${u.role.toLowerCase()}`} style={{ fontSize: "11px" }}>
+                          {u.role}
+                        </span>
                       </td>
                       <td>
                         <span className={`status-label ${u.status === "ACTIVE" ? "" : "cancelled"}`}>
@@ -907,22 +1087,61 @@ export default function AdminPortal() {
                         </span>
                       </td>
                       <td>
-                        <button
-                          onClick={() => {
-                            setUsers((prev) =>
-                              prev.map((item) =>
-                                item.id === u.id ? { ...item, status: item.status === "ACTIVE" ? "LOCKED" : "ACTIVE" } : item
-                              )
-                            );
-                            setNotice(`Đã đổi trạng thái tài khoản ${u.fullName}.`);
-                          }}
-                          className="quiet-button"
-                        >
-                          {u.status === "ACTIVE" ? "Khóa" : "Kích hoạt"}
-                        </button>
+                        <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+                          {/* View Details */}
+                          <button
+                            type="button"
+                            onClick={() => setViewingUser(u)}
+                            className="quiet-button"
+                            style={{ padding: "4px 8px", fontSize: "11px", background: "#f8fafc" }}
+                            title="Xem chi tiết hồ sơ tài khoản"
+                          >
+                            👁️ Chi tiết
+                          </button>
+
+                          {/* Edit User */}
+                          <button
+                            type="button"
+                            onClick={() => setEditingUser(u)}
+                            className="quiet-button"
+                            style={{ padding: "4px 8px", fontSize: "11px", color: "#0369a1", borderColor: "#bae6fd", background: "#f0f9ff" }}
+                            title="Chỉnh sửa thông tin"
+                          >
+                            ✏️ Sửa
+                          </button>
+
+                          {/* Lock / Unlock */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleStatus(u)}
+                            className="quiet-button"
+                            style={{ padding: "4px 8px", fontSize: "11px" }}
+                            title={u.status === "ACTIVE" ? "Khóa tài khoản này" : "Mở khóa tài khoản"}
+                          >
+                            {u.status === "ACTIVE" ? "🔒 Khóa" : "🔓 Mở"}
+                          </button>
+
+                          {/* Delete */}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteUser(u.id, u.fullName)}
+                            className="quiet-button"
+                            style={{ padding: "4px 8px", fontSize: "11px", color: "#b91c1c", borderColor: "#fecaca", background: "#fef2f2" }}
+                            title="Xóa vĩnh viễn tài khoản"
+                          >
+                            🗑️
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
+                  {filteredUsers.length === 0 && (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: "center", padding: "40px 20px", color: "var(--muted)" }}>
+                        Không tìm thấy tài khoản nào phù hợp với bộ lọc hiện tại.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1587,40 +1806,26 @@ export default function AdminPortal() {
         </div>
       )}
 
-      {/* ================= MODAL: ADD USER ================= */}
+      {/* ================= MODAL: ADD USER / CUSTOMER ================= */}
       {showAddUserModal && (
         <div className="dialog-overlay" onClick={() => setShowAddUserModal(false)}>
-          <div className="dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "500px" }}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "520px" }}>
             <button className="dialog-close" onClick={() => setShowAddUserModal(false)}>✕</button>
-            <h2 style={{ fontSize: "22px", marginBottom: "16px" }}>Thêm Người Dùng Mới</h2>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const fd = new FormData(e.currentTarget);
-                const newUser: AdminUser = {
-                  id: Date.now(),
-                  fullName: String(fd.get("fullName")),
-                  email: String(fd.get("email")),
-                  phone: String(fd.get("phone")),
-                  gender: String(fd.get("gender")),
-                  role: String(fd.get("role")),
-                  status: "ACTIVE",
-                  createdAt: new Date().toISOString().split("T")[0],
-                };
-                setUsers([...users, newUser]);
-                setShowAddUserModal(false);
-                setNotice(`Đã tạo tài khoản cho: ${newUser.fullName} (${newUser.role})!`);
-              }}
-              className="workspace-form"
-            >
+            <h2 style={{ fontSize: "22px", marginBottom: "6px" }}>
+              {userRoleFilter === "CUSTOMER" ? "🎓 Thêm Học Viên Mới" : "Thêm Người Dùng Mới"}
+            </h2>
+            <p style={{ fontSize: "12.5px", color: "var(--muted)", marginBottom: "16px" }}>
+              Tài khoản sẽ được tạo trực tiếp vào cơ sở dữ liệu hệ thống.
+            </p>
+            <form onSubmit={handleCreateUser} className="workspace-form">
               <div>
                 <label>HỌ VÀ TÊN *</label>
-                <input type="text" name="fullName" required placeholder="Nguyễn Văn B" />
+                <input type="text" name="fullName" required placeholder="Ví dụ: Nguyễn Văn An" />
               </div>
               <div className="form-row">
                 <div>
                   <label>ĐỊA CHỈ EMAIL *</label>
-                  <input type="email" name="email" required placeholder="email@example.com" />
+                  <input type="email" name="email" required placeholder="hocvien@example.com" />
                 </div>
                 <div>
                   <label>SỐ ĐIỆN THOẠI</label>
@@ -1638,16 +1843,20 @@ export default function AdminPortal() {
                 </div>
                 <div>
                   <label>VAI TRÒ (ROLE) *</label>
-                  <select name="role">
+                  <select name="role" defaultValue={userRoleFilter === "ALL" ? "CUSTOMER" : userRoleFilter}>
                     <option value="CUSTOMER">CUSTOMER (Học viên)</option>
+                    <option value="ADMIN">ADMIN (Quản trị viên)</option>
                     <option value="SALE">SALE (Bán hàng)</option>
                     <option value="MARKETING">MARKETING (Tiếp thị)</option>
                     <option value="EXPERT">EXPERT (Giảng viên)</option>
-                    <option value="ADMIN">ADMIN (Quản trị viên)</option>
                   </select>
                 </div>
               </div>
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
+              <div>
+                <label>MẬT KHẨU KHỞI TẠO (Mặc định: password123)</label>
+                <input type="password" name="password" placeholder="Để trống sẽ dùng password123" />
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "14px" }}>
                 <button type="button" onClick={() => setShowAddUserModal(false)} className="text-button">
                   Hủy
                 </button>
@@ -1656,6 +1865,150 @@ export default function AdminPortal() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: EDIT USER / CUSTOMER ================= */}
+      {editingUser && (
+        <div className="dialog-overlay" onClick={() => setEditingUser(null)}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "520px" }}>
+            <button className="dialog-close" onClick={() => setEditingUser(null)}>✕</button>
+            <h2 style={{ fontSize: "22px", marginBottom: "6px" }}>Chỉnh Sửa Thông Tin Tài Khoản</h2>
+            <p style={{ fontSize: "12.5px", color: "var(--muted)", marginBottom: "16px" }}>
+              Cập nhật thông tin cho tài khoản: <strong>{editingUser.email}</strong>
+            </p>
+            <form onSubmit={handleUpdateUser} className="workspace-form">
+              <div>
+                <label>HỌ VÀ TÊN *</label>
+                <input type="text" name="fullName" defaultValue={editingUser.fullName} required />
+              </div>
+              <div className="form-row">
+                <div>
+                  <label>SỐ ĐIỆN THOẠI</label>
+                  <input type="tel" name="phone" defaultValue={editingUser.phone !== "-" ? editingUser.phone : ""} />
+                </div>
+                <div>
+                  <label>GIỚI TÍNH</label>
+                  <select name="gender" defaultValue={editingUser.gender || "Nam"}>
+                    <option value="Nam">Nam</option>
+                    <option value="Nữ">Nữ</option>
+                    <option value="Khác">Khác</option>
+                  </select>
+                </div>
+              </div>
+              <div className="form-row">
+                <div>
+                  <label>VAI TRÒ (ROLE) *</label>
+                  <select name="role" defaultValue={editingUser.role}>
+                    <option value="CUSTOMER">CUSTOMER (Học viên)</option>
+                    <option value="ADMIN">ADMIN (Quản trị viên)</option>
+                    <option value="SALE">SALE (Bán hàng)</option>
+                    <option value="MARKETING">MARKETING (Tiếp thị)</option>
+                    <option value="EXPERT">EXPERT (Giảng viên)</option>
+                  </select>
+                </div>
+                <div>
+                  <label>TRẠNG THÁI</label>
+                  <select name="status" defaultValue={editingUser.status}>
+                    <option value="ACTIVE">HOẠT ĐỘNG (ACTIVE)</option>
+                    <option value="LOCKED">ĐÃ KHÓA (LOCKED)</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label>ĐẶT LẠI MẬT KHẨU (Bỏ trống nếu không thay đổi)</label>
+                <input type="password" name="password" placeholder="Nhập mật khẩu mới nếu muốn đổi..." />
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "14px" }}>
+                <button type="button" onClick={() => setEditingUser(null)} className="text-button">
+                  Hủy
+                </button>
+                <button type="submit" className="button button-accent">
+                  Lưu Thay Đổi
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: VIEW USER / CUSTOMER DETAILS ================= */}
+      {viewingUser && (
+        <div className="dialog-overlay" onClick={() => setViewingUser(null)}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "540px" }}>
+            <button className="dialog-close" onClick={() => setViewingUser(null)}>✕</button>
+            <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "20px" }}>
+              <div
+                style={{
+                  width: "56px",
+                  height: "56px",
+                  borderRadius: "50%",
+                  background: viewingUser.role === "CUSTOMER" ? "linear-gradient(135deg, #4f46e5, #818cf8)" : "linear-gradient(135deg, #059669, #34d399)",
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "22px",
+                  fontWeight: 800,
+                }}
+              >
+                {viewingUser.fullName ? viewingUser.fullName.charAt(0).toUpperCase() : "U"}
+              </div>
+              <div>
+                <h3 style={{ margin: "0 0 4px", fontSize: "20px", fontWeight: 700 }}>
+                  {viewingUser.fullName}
+                </h3>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <span className={`role-badge role-${viewingUser.role.toLowerCase()}`}>
+                    {viewingUser.role === "CUSTOMER" ? "🎓 Học viên" : viewingUser.role}
+                  </span>
+                  <span className={`status-label ${viewingUser.status === "ACTIVE" ? "" : "cancelled"}`}>
+                    {viewingUser.status === "ACTIVE" ? "ĐANG HOẠT ĐỘNG" : "ĐÃ KHÓA"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gap: "12px", background: "#f8fafc", padding: "18px", borderRadius: "10px", fontSize: "13px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--muted)" }}>Mã ID Người dùng:</span>
+                <strong>#{viewingUser.id}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--muted)" }}>Địa chỉ Email:</span>
+                <strong>{viewingUser.email}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--muted)" }}>Số điện thoại:</span>
+                <strong>{viewingUser.phone !== "-" ? viewingUser.phone : "Chưa cập nhật"}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--muted)" }}>Giới tính:</span>
+                <strong>{viewingUser.gender !== "-" ? viewingUser.gender : "Chưa cập nhật"}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--muted)" }}>Ngày tham gia hệ thống:</span>
+                <strong>{viewingUser.createdAt || "N/A"}</strong>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = viewingUser;
+                  setViewingUser(null);
+                  setEditingUser(target);
+                }}
+                className="button button-accent button-small"
+              >
+                ✏️ Chỉnh sửa hồ sơ này
+              </button>
+              <button type="button" onClick={() => setViewingUser(null)} className="text-button">
+                Đóng
+              </button>
+            </div>
           </div>
         </div>
       )}
