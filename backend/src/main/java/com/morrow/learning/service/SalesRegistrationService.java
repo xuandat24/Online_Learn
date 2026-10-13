@@ -45,6 +45,39 @@ public class SalesRegistrationService {
                 .map(RegistrationView::from).toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<RegistrationView> getAllRegistrations() {
+        return registrationRepository.findAll().stream()
+                .map(RegistrationView::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public RegistrationView getRegistrationById(Long id) {
+        return registrationRepository.findById(id)
+                .map(RegistrationView::from)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Registration not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public List<RegistrationView> searchRegistrations(String keyword) {
+        return registrationRepository.findByEmailContainingIgnoreCaseOrFullNameContainingIgnoreCase(keyword, keyword)
+                .stream().map(RegistrationView::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<RegistrationView> filterByStatus(RegistrationStatus status) {
+        return registrationRepository.findByStatus(status)
+                .stream().map(RegistrationView::from).toList();
+    }
+
+    @Transactional
+    public void cancelRegistration(Long id, String reason) {
+        Registration registration = registrationRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Registration not found"));
+        registration.cancel(reason);
+        registrationRepository.save(registration);
+    }
+
     @Transactional
     public RegistrationView markPaid(Long registrationId) {
         Registration registration = registrationRepository.findById(registrationId)
