@@ -20,7 +20,7 @@ public class SystemSetting {
     @Column(nullable = false, length = 100)
     private String name;
 
-    @Column(nullable = false, length = 100)
+    @Column(name = "setting_value", nullable = false, length = 100)
     private String value;
 
     @Column(nullable = false)

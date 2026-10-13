@@ -123,6 +123,10 @@ public class Registration {
         this.cancellationReason = reason;
     }
 
+    public void cancel() {
+        cancel("Cancelled by customer");
+    }
+
     public Long getId() { return id; }
     public User getCustomer() { return customer; }
     public Course getCourse() { return course; }
