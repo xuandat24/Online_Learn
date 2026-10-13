@@ -62,7 +62,13 @@ public class LearningController {
     @PutMapping("/attempts/{attemptId}/answers/{questionId}")
     public QuizAttemptView answer(Principal principal, @PathVariable Long attemptId, @PathVariable Long questionId,
                                  @Valid @RequestBody SelectedAnswerRequest request) {
-        return contentService.saveAnswer(attemptId, questionId, principal.getName(), request.selectedOptionIndex());
+        return contentService.saveAnswer(attemptId, questionId, principal.getName(),
+                request.selectedOptionIndex(), request.markedForReview(), request.answerPeeked());
+    }
+
+    @PostMapping("/quizzes/{quizId}/redo")
+    public QuizAttemptView redo(Principal principal, @PathVariable Long quizId) {
+        return contentService.redoAttempt(quizId, principal.getName());
     }
 
     @PostMapping("/attempts/{attemptId}/submit")

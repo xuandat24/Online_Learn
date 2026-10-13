@@ -1,12 +1,16 @@
 server:
-  port: ${PORT:8080}
+  port: ${PORT:8081}
 
 spring:
   application:
     name: morrow-learning-platform
   datasource:
+ Market_Sale
     url: ${DB_URL:jdbc:h2:file:./data/morrowdb;DB_CLOSE_DELAY=-1}
     driver-class-name: ${DB_DRIVER:org.h2.Driver}
+=======
+    url: ${DB_URL:jdbc:h2:file:./data/morrow;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false}
+ main
     username: ${DB_USERNAME:sa}
     password: ${DB_PASSWORD:}
   jpa:

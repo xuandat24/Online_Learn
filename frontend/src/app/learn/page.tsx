@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "../workspace.css";
 
 type SessionUser = {
@@ -93,6 +93,7 @@ const initialSampleEnrollments: Enrollment[] = [
     status: "ACTIVE",
     createdAt: "2026-09-15",
   },
+
   {
     id: 2,
     courseId: 1,
@@ -241,8 +242,10 @@ export default function CustomerPortal() {
     avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
   });
 
-  // Main Tabs: "courses" | "registrations" | "profile"
-  const [mainTab, setMainTab] = useState<"courses" | "registrations" | "profile">("courses");
+  // Main Tabs: "courses" | "registrations"
+  const [mainTab, setMainTab] = useState<"courses" | "registrations">("courses");
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileTab, setProfileTab] = useState<"info" | "password">("info");
 
   // Enrollments & Registrations
   const [enrollments, setEnrollments] = useState<Enrollment[]>(initialSampleEnrollments);
@@ -273,24 +276,60 @@ export default function CustomerPortal() {
   // Notifications & Busy
   const [notice, setNotice] = useState("");
 
+  const submitQuizRef = useRef<() => void>(() => {});
+
+  // Sign out
+  const signOut = () => {
+    sessionStorage.removeItem("morrow.token");
+    sessionStorage.removeItem("morrow.user");
+    localStorage.removeItem("morrow.token");
+    localStorage.removeItem("morrow.user");
+    window.location.href = "/";
+  };
+
   // Restore user session
   useEffect(() => {
-    const storedToken = sessionStorage.getItem("morrow.token");
-    const storedUser = sessionStorage.getItem("morrow.user");
-    if (storedUser) {
-      try {
+    try {
+      const storedToken = sessionStorage.getItem("morrow.token") || localStorage.getItem("morrow.token");
+      const storedUser = sessionStorage.getItem("morrow.user") || localStorage.getItem("morrow.user");
+      if (storedUser) {
         const parsed = JSON.parse(storedUser) as SessionUser;
-        setUser((prev) => ({ ...prev, ...parsed }));
-        if (storedToken) setToken(storedToken);
-      } catch {
-        // Fallback to default customer
+        setTimeout(() => {
+          setUser((prev) => ({ ...prev, ...parsed }));
+          if (storedToken) setToken(storedToken);
+        }, 0);
       }
+    } catch {
+      // Fallback to default customer
     }
   }, []);
 
-  // Fetch real enrollments & registrations from API if available
+  // Search courses & Peek answer state
+  const [courseSearch, setCourseSearch] = useState("");
+  const [peekedQuestions, setPeekedQuestions] = useState<number[]>([]);
+
+  // Fetch real enrollments, registrations & customer profile from API if available
   useEffect(() => {
     if (!token) return;
+
+    fetch("/api/customer/profile", { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data) => {
+        if (data && data.fullName) {
+          setUser((prev) => ({
+            ...prev,
+            id: data.id,
+            fullName: data.fullName,
+            email: data.email,
+            mobile: data.phone,
+            gender: data.gender,
+            address: data.address,
+            role: data.role,
+          }));
+        }
+      })
+      .catch(() => {});
+
     fetch("/api/enrollments/me", { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then((data: Enrollment[]) => {
@@ -313,7 +352,7 @@ export default function CustomerPortal() {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          submitQuiz();
+          submitQuizRef.current();
           return 0;
         }
         return prev - 1;
@@ -374,8 +413,18 @@ export default function CustomerPortal() {
       `Đã nộp bài thi thành công! Điểm số: ${finalScore}/100. ${isPassed ? "🎉 Bạn đã ĐẠT bài thi này!" : "⚠️ Chưa đạt điểm qua môn, bạn có thể xem lại lời giải bên dưới hoặc thi lại."}`
     );
   };
+  useEffect(() => {
+    submitQuizRef.current = submitQuiz;
+  });
 
-  // Retake Quiz
+  // Toggle Peek at Answer (Gợi ý đáp án)
+  const togglePeekAnswer = (questionId: number) => {
+    setPeekedQuestions((prev) =>
+      prev.includes(questionId) ? prev.filter((id) => id !== questionId) : [...prev, questionId]
+    );
+  };
+
+  // Retake Quiz (Làm lại bài thi)
   const redoQuiz = () => {
     setQuizAttempt({
       id: Date.now(),
@@ -387,14 +436,23 @@ export default function CustomerPortal() {
       answers: {},
       markedQuestions: [],
     });
+    setPeekedQuestions([]);
     setTimeLeft(activeQuiz.durationMinutes * 60);
     setCurrentQuestionIndex(0);
     setQuizState("TESTING");
-    setNotice("");
+    setNotice("Bắt đầu làm lại bài thi mới!");
   };
 
   // Cancel Registration
-  const cancelRegistration = (regId: number) => {
+  const cancelRegistration = async (regId: number) => {
+    if (token) {
+      try {
+        await fetch(`/api/registrations/${regId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {}
+    }
     setRegistrations((prev) =>
       prev.map((r) => (r.id === regId && r.status === "SUBMITTED" ? { ...r, status: "CANCELLED" } : r))
     );
@@ -417,25 +475,6 @@ export default function CustomerPortal() {
 
   return (
     <div className="workspace-page">
-      {/* ================= ACTOR SWITCHER BAR ================= */}
-      <div className="actor-banner">
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <span className="actor-badge" style={{ background: "#2e7d32", color: "#fff" }}>
-            🎓 Actor: CUSTOMER (Không Gian Học Viên)
-          </span>
-          <span style={{ opacity: 0.85 }}>Học tập trực tuyến, làm bài thi trắc nghiệm và quản lý khóa học</span>
-        </div>
-        <div className="actor-links">
-          <span>Chuyển chế độ:</span>
-          <Link href="/" className="actor-btn">
-            👤 Trang chủ Khách (Guest)
-          </Link>
-          <Link href="/manage" className="actor-btn">
-            ⚙️ Cổng Quản trị (Admin)
-          </Link>
-        </div>
-      </div>
-
       {/* ================= WORKSPACE HEADER ================= */}
       <header className="workspace-header">
         <div style={{ display: "flex", alignItems: "center", gap: "28px" }}>
@@ -473,36 +512,51 @@ export default function CustomerPortal() {
             >
               📝 Đơn đăng ký của tôi ({registrations.length})
             </button>
-            <button
-              onClick={() => { setMainTab("profile"); setQuizState("IDLE"); }}
-              style={{
-                border: 0,
-                background: "none",
-                cursor: "pointer",
-                padding: "8px 0",
-                fontWeight: mainTab === "profile" ? 700 : 400,
-                color: mainTab === "profile" ? "var(--ink)" : "#6d7b71",
-                borderBottom: mainTab === "profile" ? "2px solid var(--coral)" : "none",
-              }}
-            >
-              👤 Hồ sơ cá nhân & Đổi MK
-            </button>
           </div>
         </div>
 
-        <div className="workspace-identity">
-          <img
-            src={user.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"}
-            alt={user.fullName}
-            style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover" }}
-          />
-          <div>
-            <strong>HỌC VIÊN: {user.fullName}</strong>
-            <span style={{ display: "block", fontSize: "11px", color: "var(--muted)" }}>{user.email}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          {/* User Identity Pill - Clickable to open Profile & Password Modal */}
+          <div
+            className="user-pill"
+            onClick={() => { setShowProfileModal(true); setProfileTab("info"); }}
+            title="Nhấp vào đây để xem Hồ sơ cá nhân & Đổi mật khẩu"
+            style={{
+              background: "rgba(255,255,255,0.95)",
+              cursor: "pointer",
+              transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+            }}
+          >
+            <div className="user-avatar-circle">
+              {user.fullName ? user.fullName.charAt(0).toUpperCase() : "U"}
+            </div>
+            <div className="user-info-text">
+              <span className="user-name-title" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                {user.fullName} <span style={{ fontSize: "10px", color: "var(--primary)" }}>⚙️</span>
+              </span>
+              <div>
+                {user.role === "CUSTOMER" && <span className="role-badge role-customer" style={{ fontSize: "9.5px", padding: "2px 6px" }}>🎓 Học viên</span>}
+                {user.role === "ADMIN" && <span className="role-badge role-admin" style={{ fontSize: "9.5px", padding: "2px 6px" }}>👑 Quản trị viên</span>}
+                {user.role === "SALE" && <span className="role-badge role-sale" style={{ fontSize: "9.5px", padding: "2px 6px" }}>💼 Tư vấn Sale</span>}
+                {user.role === "EXPERT" && <span className="role-badge role-expert" style={{ fontSize: "9.5px", padding: "2px 6px" }}>🔬 Chuyên gia</span>}
+                {user.role === "MARKETING" && <span className="role-badge role-marketing" style={{ fontSize: "9.5px", padding: "2px 6px" }}>📢 Marketing</span>}
+              </div>
+            </div>
           </div>
-          <Link href="/" style={{ color: "var(--coral)", fontSize: "12px", textDecoration: "none" }}>
-            Trang chủ ↗
+
+          {["ADMIN", "SALE", "MARKETING", "EXPERT"].includes(user.role) && (
+            <Link href="/manage" className="button button-small button-dark" style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+              <span>⚙️</span> Cổng Quản trị
+            </Link>
+          )}
+
+          <Link href="/" className="text-button" style={{ fontSize: "12.5px", color: "var(--ink)", fontWeight: 500 }}>
+            🏠 Trang chủ
           </Link>
+
+          <button onClick={signOut} className="text-button" style={{ fontSize: "12.5px", color: "var(--coral)", fontWeight: 600 }}>
+            🚪 Đăng xuất
+          </button>
         </div>
       </header>
 
@@ -524,10 +578,32 @@ export default function CustomerPortal() {
                 {/* Enrolled Courses Selector */}
                 <div className="workspace-panel">
                   <div className="panel-heading" style={{ marginBottom: "12px", paddingBottom: "8px" }}>
-                    <h3 style={{ margin: 0, fontSize: "16px", fontFamily: "Georgia, serif" }}>Khóa học đã đăng ký</h3>
+                    <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>Khóa học đã đăng ký</h3>
                   </div>
+
+                  {/* Search Enrolled Courses */}
+                  <div style={{ marginBottom: "10px" }}>
+                    <input
+                      type="text"
+                      placeholder="🔍 Tìm kiếm khóa học..."
+                      value={courseSearch}
+                      onChange={(e) => setCourseSearch(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "7px 10px",
+                        fontSize: "12px",
+                        borderRadius: "6px",
+                        border: "1px solid #dce2d7",
+                        outline: "none",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  </div>
+
                   <div style={{ display: "grid", gap: "8px" }}>
-                    {enrollments.map((enr) => (
+                    {enrollments
+                      .filter((enr) => !courseSearch || enr.courseTitle.toLowerCase().includes(courseSearch.toLowerCase()))
+                      .map((enr) => (
                       <div
                         key={enr.id}
                         onClick={() => setSelectedCourseId(enr.courseId)}
@@ -559,7 +635,7 @@ export default function CustomerPortal() {
                 {/* Lesson List of Active Course */}
                 <div className="workspace-panel">
                   <div className="panel-heading" style={{ marginBottom: "12px", paddingBottom: "8px" }}>
-                    <h3 style={{ margin: 0, fontSize: "16px", fontFamily: "Georgia, serif" }}>Nội dung bài học</h3>
+                    <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 700 }}>Nội dung bài học</h3>
                   </div>
                   <div style={{ display: "grid", gap: "6px" }}>
                     {lessons.map((les) => (
@@ -705,14 +781,55 @@ export default function CustomerPortal() {
                     <span className="question-number">
                       CÂU HỎI {currentQuestionIndex + 1} / {activeQuiz.questions.length}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => toggleMarkForReview(currentQuestion.id)}
-                      className={`mark-review-btn ${quizAttempt.markedQuestions.includes(currentQuestion.id) ? "active" : ""}`}
-                    >
-                      🚩 {quizAttempt.markedQuestions.includes(currentQuestion.id) ? "Đã đánh dấu xem lại" : "Đánh dấu xem lại (Mark for Review)"}
-                    </button>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      <button
+                        type="button"
+                        onClick={() => togglePeekAnswer(currentQuestion.id)}
+                        className="mark-review-btn"
+                        style={{
+                          background: peekedQuestions.includes(currentQuestion.id) ? "#fef3c7" : "#fff",
+                          borderColor: peekedQuestions.includes(currentQuestion.id) ? "#f59e0b" : "#d9e2d5",
+                          color: peekedQuestions.includes(currentQuestion.id) ? "#b45309" : "#64748b",
+                        }}
+                      >
+                        👁️ {peekedQuestions.includes(currentQuestion.id) ? "Ẩn gợi ý đáp án" : "Gợi ý đáp án (Peek at Answer)"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleMarkForReview(currentQuestion.id)}
+                        className={`mark-review-btn ${quizAttempt.markedQuestions.includes(currentQuestion.id) ? "active" : ""}`}
+                      >
+                        🚩 {quizAttempt.markedQuestions.includes(currentQuestion.id) ? "Đã đánh dấu xem lại" : "Đánh dấu xem lại (Mark for Review)"}
+                      </button>
+                    </div>
                   </div>
+
+                  {peekedQuestions.includes(currentQuestion.id) && (
+                    <div
+                      style={{
+                        padding: "12px 16px",
+                        background: "#fffbeb",
+                        border: "1px solid #fde68a",
+                        borderRadius: "8px",
+                        marginBottom: "16px",
+                        fontSize: "13px",
+                        color: "#92400e",
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "10px",
+                      }}
+                    >
+                      <span style={{ fontSize: "16px" }}>💡</span>
+                      <div>
+                        <strong>Đáp án đúng:</strong> Phương án {["A", "B", "C", "D"][currentQuestion.correctOptionIndex]} - <em>{currentQuestion.options[currentQuestion.correctOptionIndex]}</em>
+                        {currentQuestion.explanation && (
+                          <div style={{ marginTop: "4px", fontSize: "12px", color: "#b45309" }}>
+                            Giải thích: {currentQuestion.explanation}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <h3 className="question-prompt">{currentQuestion.prompt}</h3>
 
@@ -872,7 +989,7 @@ export default function CustomerPortal() {
               </div>
 
               {/* Review All Questions with Explanations */}
-              <h3 style={{ fontSize: "20px", fontFamily: "Georgia, serif", marginBottom: "18px" }}>
+              <h3 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "18px" }}>
                 Chi tiết bài thi & Lời giải thích (Quiz Review):
               </h3>
 
@@ -1035,48 +1152,128 @@ export default function CustomerPortal() {
         </main>
       )}
 
-      {/* ================= TAB 3: USER PROFILE & CHANGE PASSWORD ================= */}
-      {mainTab === "profile" && (
-        <main className="workspace-main" style={{ maxWidth: "800px" }}>
-          <div className="workspace-heading">
-            <div>
-              <div className="eyebrow">
-                <span className="eyebrow-line"></span>
-                <span>Tài khoản cá nhân</span>
-              </div>
-              <h1>Hồ sơ & Đổi mật khẩu</h1>
-            </div>
-          </div>
+      {/* ================= MODAL: USER PROFILE & CHANGE PASSWORD POP UP ================= */}
+      {showProfileModal && (
+        <div className="dialog-overlay" onClick={() => setShowProfileModal(false)}>
+          <div className="dialog auth-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "560px", borderRadius: "20px" }}>
+            <button className="dialog-close" onClick={() => setShowProfileModal(false)}>✕</button>
 
-          <div style={{ display: "grid", gap: "24px" }}>
-            {/* Edit Profile Form */}
-            <div className="workspace-panel">
-              <h3 style={{ margin: "0 0 18px", fontSize: "18px", fontFamily: "Georgia, serif" }}>
-                1. Thông tin cá nhân (User Profile)
-              </h3>
+            {/* Profile User Header */}
+            <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "20px" }}>
+              <div
+                style={{
+                  width: "56px",
+                  height: "56px",
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, var(--primary), #818cf8)",
+                  color: "#ffffff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "22px",
+                  fontWeight: 800,
+                  boxShadow: "0 4px 14px rgba(79, 70, 229, 0.3)",
+                }}
+              >
+                {user.fullName ? user.fullName.charAt(0).toUpperCase() : "U"}
+              </div>
+              <div>
+                <h3 style={{ margin: "0 0 4px", fontSize: "19px", fontWeight: 700, color: "var(--ink)" }}>
+                  {user.fullName}
+                </h3>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  {user.role === "CUSTOMER" && <span className="role-badge role-customer">🎓 Học viên</span>}
+                  {user.role === "ADMIN" && <span className="role-badge role-admin">👑 Quản trị viên</span>}
+                  {user.role === "SALE" && <span className="role-badge role-sale">💼 Tư vấn Sale</span>}
+                  {user.role === "EXPERT" && <span className="role-badge role-expert">🔬 Chuyên gia</span>}
+                  {user.role === "MARKETING" && <span className="role-badge role-marketing">📢 Marketing</span>}
+                  <span style={{ fontSize: "11px", color: "var(--muted)" }}>{user.email}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Tab Segment: Profile vs Password */}
+            <div className="auth-tab-segment">
+              <button
+                type="button"
+                className={`auth-tab-btn ${profileTab === "info" ? "active" : ""}`}
+                onClick={() => setProfileTab("info")}
+              >
+                👤 Thông tin cá nhân
+              </button>
+              <button
+                type="button"
+                className={`auth-tab-btn ${profileTab === "password" ? "active" : ""}`}
+                onClick={() => setProfileTab("password")}
+              >
+                🔒 Đổi mật khẩu
+              </button>
+            </div>
+
+            {/* Profile Info Tab Content */}
+            {profileTab === "info" && (
               <form
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
                   const fd = new FormData(e.currentTarget);
-                  setUser((prev) => ({
-                    ...prev,
+                  const updatePayload = {
                     fullName: String(fd.get("fullName")),
                     gender: String(fd.get("gender")),
-                    mobile: String(fd.get("mobile")),
+                    phone: String(fd.get("mobile")),
                     address: String(fd.get("address")),
-                  }));
-                  setNotice("Đã cập nhật thông tin hồ sơ cá nhân thành công!");
+                  };
+                  try {
+                    if (token) {
+                      const res = await fetch("/api/customer/profile", {
+                        method: "PUT",
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(updatePayload),
+                      });
+                      if (res.ok) {
+                        const saved = await res.json();
+                        const updated = {
+                          ...user,
+                          fullName: saved.fullName,
+                          gender: saved.gender,
+                          mobile: saved.phone,
+                          address: saved.address,
+                        };
+                        setUser(updated);
+                        sessionStorage.setItem("morrow.user", JSON.stringify(updated));
+                        localStorage.setItem("morrow.user", JSON.stringify(updated));
+                        setNotice("✓ Đã cập nhật thông tin hồ sơ cá nhân thành công lên hệ thống!");
+                        setShowProfileModal(false);
+                        return;
+                      }
+                    }
+                  } catch {}
+                  const fallback = {
+                    ...user,
+                    fullName: updatePayload.fullName,
+                    gender: updatePayload.gender,
+                    mobile: updatePayload.phone,
+                    address: updatePayload.address,
+                  };
+                  setUser(fallback);
+                  sessionStorage.setItem("morrow.user", JSON.stringify(fallback));
+                  localStorage.setItem("morrow.user", JSON.stringify(fallback));
+                  setNotice("✓ Đã lưu thay đổi hồ sơ cá nhân!");
+                  setShowProfileModal(false);
                 }}
                 className="workspace-form"
+                style={{ display: "grid", gap: "12px" }}
               >
                 <div className="form-row">
                   <div>
-                    <label>HỌ VÀ TÊN</label>
-                    <input type="text" name="fullName" defaultValue={user.fullName} required />
+                    <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)" }}>HỌ VÀ TÊN *</label>
+                    <input type="text" name="fullName" defaultValue={user.fullName} required style={{ width: "100%", padding: "9px 12px", border: "1px solid var(--line)", borderRadius: "8px" }} />
                   </div>
                   <div>
-                    <label>GIỚI TÍNH</label>
-                    <select name="gender" defaultValue={user.gender || "Nam"}>
+                    <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)" }}>GIỚI TÍNH</label>
+                    <select name="gender" defaultValue={user.gender || "Nam"} style={{ width: "100%", padding: "9px 12px", border: "1px solid var(--line)", borderRadius: "8px" }}>
                       <option value="Nam">Nam</option>
                       <option value="Nữ">Nữ</option>
                       <option value="Khác">Khác</option>
@@ -1086,71 +1283,101 @@ export default function CustomerPortal() {
 
                 <div className="form-row">
                   <div>
-                    <label>ĐỊA CHỈ EMAIL (KHÔNG THỂ THAY ĐỔI)</label>
-                    <input type="email" value={user.email} disabled style={{ background: "#f5f6f2", cursor: "not-allowed" }} />
+                    <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)" }}>ĐỊA CHỈ EMAIL</label>
+                    <input type="email" value={user.email} disabled style={{ width: "100%", padding: "9px 12px", border: "1px solid var(--line)", borderRadius: "8px", background: "#f8fafc", color: "#64748b" }} />
                   </div>
                   <div>
-                    <label>SỐ ĐIỆN THOẠI</label>
-                    <input type="tel" name="mobile" defaultValue={user.mobile || ""} placeholder="0912 345 678" />
+                    <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)" }}>SỐ ĐIỆN THOẠI</label>
+                    <input type="tel" name="mobile" defaultValue={user.mobile || ""} placeholder="0912 345 678" style={{ width: "100%", padding: "9px 12px", border: "1px solid var(--line)", borderRadius: "8px" }} />
                   </div>
                 </div>
 
                 <div>
-                  <label>ĐỊA CHỈ LIÊN HỆ</label>
-                  <input type="text" name="address" defaultValue={user.address || ""} placeholder="Số nhà, đường, quận, thành phố" />
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)" }}>ĐỊA CHỈ LIÊN HỆ</label>
+                  <input type="text" name="address" defaultValue={user.address || ""} placeholder="Số nhà, đường, quận, thành phố" style={{ width: "100%", padding: "9px 12px", border: "1px solid var(--line)", borderRadius: "8px" }} />
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <button type="submit" className="button button-dark button-small">
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
+                  <button type="button" onClick={() => setShowProfileModal(false)} className="text-button">
+                    Hủy bỏ
+                  </button>
+                  <button type="submit" className="button button-dark button-small" style={{ padding: "10px 18px" }}>
                     Lưu thay đổi hồ sơ
                   </button>
                 </div>
               </form>
-            </div>
+            )}
 
-            {/* Change Password Form */}
-            <div className="workspace-panel">
-              <h3 style={{ margin: "0 0 18px", fontSize: "18px", fontFamily: "Georgia, serif" }}>
-                2. Đổi mật khẩu đăng nhập (Change Password)
-              </h3>
+            {/* Change Password Tab Content */}
+            {profileTab === "password" && (
               <form
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
                   const fd = new FormData(e.currentTarget);
+                  const pOld = String(fd.get("oldPass"));
                   const p1 = String(fd.get("newPass"));
                   const p2 = String(fd.get("confirmPass"));
                   if (p1 !== p2) {
-                    setNotice("Mật khẩu mới và xác nhận mật khẩu không khớp!");
+                    setNotice("⚠️ Mật khẩu mới và xác nhận mật khẩu không khớp!");
                     return;
                   }
-                  setNotice("Đổi mật khẩu thành công!");
-                  e.currentTarget.reset();
+                  if (p1.length < 6) {
+                    setNotice("⚠️ Mật khẩu mới phải có tối thiểu 6 ký tự!");
+                    return;
+                  }
+                  try {
+                    if (token) {
+                      const res = await fetch("/api/customer/change-password", {
+                        method: "PUT",
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ oldPassword: pOld, newPassword: p1 }),
+                      });
+                      if (res.ok) {
+                        setNotice("✓ Đổi mật khẩu thành công! Mật khẩu mới đã được cập nhật.");
+                        setShowProfileModal(false);
+                        return;
+                      } else {
+                        setNotice("❌ Đổi mật khẩu thất bại: Mật khẩu hiện tại không chính xác.");
+                        return;
+                      }
+                    }
+                  } catch {}
+                  setNotice("✓ Đổi mật khẩu thành công!");
+                  setShowProfileModal(false);
                 }}
                 className="workspace-form"
+                style={{ display: "grid", gap: "12px" }}
               >
                 <div>
-                  <label>MẬT KHẨU HIỆN TẠI</label>
-                  <input type="password" name="oldPass" required placeholder="••••••••" />
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)" }}>MẬT KHẨU HIỆN TẠI *</label>
+                  <input type="password" name="oldPass" required placeholder="••••••••" style={{ width: "100%", padding: "9px 12px", border: "1px solid var(--line)", borderRadius: "8px" }} />
                 </div>
                 <div className="form-row">
                   <div>
-                    <label>MẬT KHẨU MỚI</label>
-                    <input type="password" name="newPass" required placeholder="Tối thiểu 6 ký tự" />
+                    <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)" }}>MẬT KHẨU MỚI *</label>
+                    <input type="password" name="newPass" required placeholder="Tối thiểu 6 ký tự" style={{ width: "100%", padding: "9px 12px", border: "1px solid var(--line)", borderRadius: "8px" }} />
                   </div>
                   <div>
-                    <label>XÁC NHẬN MẬT KHẨU MỚI</label>
-                    <input type="password" name="confirmPass" required placeholder="Nhập lại mật khẩu mới" />
+                    <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)" }}>XÁC NHẬN MẬT KHẨU MỚI *</label>
+                    <input type="password" name="confirmPass" required placeholder="Nhập lại mật khẩu mới" style={{ width: "100%", padding: "9px 12px", border: "1px solid var(--line)", borderRadius: "8px" }} />
                   </div>
                 </div>
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <button type="submit" className="button button-accent button-small">
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
+                  <button type="button" onClick={() => setShowProfileModal(false)} className="text-button">
+                    Hủy bỏ
+                  </button>
+                  <button type="submit" className="button button-accent button-small" style={{ padding: "10px 18px" }}>
                     Cập nhật mật khẩu mới
                   </button>
                 </div>
               </form>
-            </div>
+            )}
           </div>
-        </main>
+        </div>
       )}
     </div>
   );

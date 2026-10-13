@@ -4,7 +4,6 @@ import com.morrow.learning.dto.CourseView;
 import com.morrow.learning.dto.CourseWriteRequest;
 import com.morrow.learning.service.CourseService;
 import jakarta.validation.Valid;
-import java.security.Principal;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -27,28 +26,24 @@ public class AdminCourseController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'EXPERT')")
-    public java.util.List<CourseView> list(Principal principal) {
-        return courseService.listAll(principal.getName());
+    public java.util.List<CourseView> list() {
+        return courseService.listAll();
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('ADMIN', 'EXPERT')")
-    public CourseView create(Principal principal, @Valid @RequestBody CourseWriteRequest request) {
-        return courseService.create(request, principal.getName());
+    public CourseView create(@Valid @RequestBody CourseWriteRequest request) {
+        return courseService.create(request);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'EXPERT')")
-    public CourseView update(Principal principal, @PathVariable Long id,
-                             @Valid @RequestBody CourseWriteRequest request) {
-        return courseService.update(id, request, principal.getName());
+    public CourseView update(@PathVariable Long id, @Valid @RequestBody CourseWriteRequest request) {
+        return courseService.update(id, request);
     }
 
     @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
         courseService.delete(id);
     }

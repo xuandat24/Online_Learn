@@ -64,15 +64,15 @@ public class CourseContentService {
     }
 
     @Transactional(readOnly = true)
-    public List<LessonView> manageLessons(Long courseId, String actorEmail) {
-        courseService.assertCanManageCourse(courseId, actorEmail);
+    public List<LessonView> manageLessons(Long courseId) {
+        courseService.assertCourseExists(courseId);
         return lessonRepository.findAllByCourseIdOrderByDisplayOrderAsc(courseId).stream()
                 .map(lesson -> LessonView.from(lesson, false)).toList();
     }
 
     @Transactional
-    public LessonView createLesson(Long courseId, String actorEmail, LessonWriteRequest request) {
-        courseService.assertCanManageCourse(courseId, actorEmail);
+    public LessonView createLesson(Long courseId, LessonWriteRequest request) {
+        courseService.assertCourseExists(courseId);
         Course course = findCourse(courseId);
         Lesson lesson = new Lesson(course, request.title().trim(), request.summary().trim(),
                 request.content().trim(), request.videoUrl(), request.displayOrder(), request.published());
@@ -80,8 +80,8 @@ public class CourseContentService {
     }
 
     @Transactional
-    public LessonView updateLesson(Long courseId, Long lessonId, String actorEmail, LessonWriteRequest request) {
-        courseService.assertCanManageCourse(courseId, actorEmail);
+    public LessonView updateLesson(Long courseId, Long lessonId, LessonWriteRequest request) {
+        courseService.assertCourseExists(courseId);
         Lesson lesson = findLesson(courseId, lessonId);
         lesson.update(request.title().trim(), request.summary().trim(), request.content().trim(),
                 request.videoUrl(), request.displayOrder(), request.published());
@@ -89,24 +89,24 @@ public class CourseContentService {
     }
 
     @Transactional
-    public void deleteLesson(Long courseId, Long lessonId, String actorEmail) {
-        courseService.assertCanManageCourse(courseId, actorEmail);
+    public void deleteLesson(Long courseId, Long lessonId) {
+        courseService.assertCourseExists(courseId);
         Lesson lesson = findLesson(courseId, lessonId);
         lesson.update(lesson.getTitle(), lesson.getSummary(), lesson.getContent(), lesson.getVideoUrl(),
                 lesson.getDisplayOrder(), false);
     }
 
     @Transactional(readOnly = true)
-    public List<QuizView> manageQuizzes(Long courseId, String actorEmail) {
-        courseService.assertCanManageCourse(courseId, actorEmail);
+    public List<QuizView> manageQuizzes(Long courseId) {
+        courseService.assertCourseExists(courseId);
         return quizRepository.findAllByCourseIdOrderByCreatedAtAsc(courseId).stream()
             .map(quiz -> QuizView.from(quiz, quizAttemptRepository.existsByQuizId(quiz.getId())))
             .toList();
     }
 
     @Transactional
-    public QuizView createQuiz(Long courseId, String actorEmail, QuizWriteRequest request) {
-        courseService.assertCanManageCourse(courseId, actorEmail);
+    public QuizView createQuiz(Long courseId, QuizWriteRequest request) {
+        courseService.assertCourseExists(courseId);
         Course course = findCourse(courseId);
         Quiz quiz = new Quiz(course, request.title().trim(), request.description().trim(),
                 request.passingScore(), request.published());
@@ -115,8 +115,8 @@ public class CourseContentService {
     }
 
     @Transactional
-    public QuizView updateQuiz(Long courseId, Long quizId, String actorEmail, QuizWriteRequest request) {
-        courseService.assertCanManageCourse(courseId, actorEmail);
+    public QuizView updateQuiz(Long courseId, Long quizId, QuizWriteRequest request) {
+        courseService.assertCourseExists(courseId);
         Quiz quiz = findQuiz(courseId, quizId);
         if (quizAttemptRepository.existsByQuizId(quizId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A quiz cannot be edited after a learner has attempted it");
@@ -127,8 +127,8 @@ public class CourseContentService {
     }
 
     @Transactional
-    public void deleteQuiz(Long courseId, Long quizId, String actorEmail) {
-        courseService.assertCanManageCourse(courseId, actorEmail);
+    public void deleteQuiz(Long courseId, Long quizId) {
+        courseService.assertCourseExists(courseId);
         Quiz quiz = findQuiz(courseId, quizId);
         if (quizAttemptRepository.existsByQuizId(quizId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A quiz with learner attempts cannot be deleted");
@@ -206,7 +206,8 @@ public class CourseContentService {
     }
 
     @Transactional
-    public QuizAttemptView saveAnswer(Long attemptId, Long questionId, String email, int selectedOptionIndex) {
+    public QuizAttemptView saveAnswer(Long attemptId, Long questionId, String email, int selectedOptionIndex,
+                                      Boolean markedForReview, Boolean answerPeeked) {
         QuizAttempt attempt = findOwnedAttempt(attemptId, email);
         requireAccess(attempt.getQuiz().getCourse().getId(), email);
         if (attempt.getStatus() != AttemptStatus.IN_PROGRESS) {
@@ -220,11 +221,29 @@ public class CourseContentService {
         }
         QuizAnswer answer = attempt.answerFor(questionId);
         if (answer == null) {
-            attempt.addAnswer(new QuizAnswer(question, selectedOptionIndex));
+            answer = new QuizAnswer(question, selectedOptionIndex);
+            attempt.addAnswer(answer);
         } else {
             answer.update(selectedOptionIndex);
         }
+        if (markedForReview != null) {
+            answer.setMarkedForReview(markedForReview);
+        }
+        if (answerPeeked != null) {
+            answer.setAnswerPeeked(answerPeeked);
+        }
         return QuizAttemptView.from(attempt);
+    }
+
+    @Transactional
+    public QuizAttemptView redoAttempt(Long quizId, String email) {
+        Quiz quiz = quizRepository.findById(quizId)
+                .filter(Quiz::isPublished)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Quiz not found"));
+        requireAccess(quiz.getCourse().getId(), email);
+        User user = requireUser(email);
+        QuizAttempt freshAttempt = quizAttemptRepository.save(new QuizAttempt(user, quiz));
+        return QuizAttemptView.from(freshAttempt);
     }
 
     @Transactional

@@ -2,16 +2,12 @@ package com.morrow.learning.service;
 
 import com.morrow.learning.domain.Course;
 import com.morrow.learning.domain.PricePackage;
-import com.morrow.learning.domain.Role;
 import com.morrow.learning.domain.Subject;
-import com.morrow.learning.domain.User;
 import com.morrow.learning.dto.CourseView;
 import com.morrow.learning.dto.CourseWriteRequest;
 import com.morrow.learning.dto.PricePackageWriteRequest;
 import com.morrow.learning.repository.CourseRepository;
-import com.morrow.learning.repository.ExpertSubjectAssignmentRepository;
 import com.morrow.learning.repository.SubjectRepository;
-import com.morrow.learning.repository.UserRepository;
 import java.math.BigDecimal;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -22,17 +18,11 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class CourseService {
     private final CourseRepository courseRepository;
-    private final UserRepository userRepository;
     private final SubjectRepository subjectRepository;
-    private final ExpertSubjectAssignmentRepository assignmentRepository;
 
-    public CourseService(CourseRepository courseRepository, UserRepository userRepository,
-                         SubjectRepository subjectRepository,
-                         ExpertSubjectAssignmentRepository assignmentRepository) {
+    public CourseService(CourseRepository courseRepository, SubjectRepository subjectRepository) {
         this.courseRepository = courseRepository;
-        this.userRepository = userRepository;
         this.subjectRepository = subjectRepository;
-        this.assignmentRepository = assignmentRepository;
     }
 
     @Transactional(readOnly = true)
@@ -52,17 +42,13 @@ public class CourseService {
     }
 
     @Transactional(readOnly = true)
-    public List<CourseView> listAll(String actorEmail) {
-        User actor = requireManager(actorEmail);
-        return courseRepository.findAll().stream()
-                .filter(course -> actor.getRole() == Role.ADMIN || (course.getSubject() != null
-                        && assignmentRepository.existsByExpertIdAndSubjectId(actor.getId(), course.getSubject().getId())))
-                .map(CourseView::from).toList();
+    public List<CourseView> listAll() {
+        return courseRepository.findAll().stream().map(CourseView::fromAdmin).toList();
     }
 
     @Transactional
-    public CourseView create(CourseWriteRequest request, String actorEmail) {
-        Subject subject = findManageableSubject(request.subjectId(), actorEmail);
+    public CourseView create(CourseWriteRequest request) {
+        Subject subject = findManageableSubject(request.subjectId());
         Course course = new Course(request.title().trim(), request.description().trim(), request.category().trim(),
                 request.instructor().trim(), request.level().trim(), request.duration().trim(), request.price(),
                 0, 0, request.image(), request.accent());
@@ -71,20 +57,19 @@ public class CourseService {
                 request.instructor().trim(), request.level().trim(), request.duration().trim(), request.price(),
                 request.image(), request.accent(), request.published());
         course.reconcilePricePackages(toPricePackages(request.pricePackages(), course));
-        return CourseView.from(courseRepository.save(course));
+        return CourseView.fromAdmin(courseRepository.save(course));
     }
 
     @Transactional
-    public CourseView update(Long id, CourseWriteRequest request, String actorEmail) {
+    public CourseView update(Long id, CourseWriteRequest request) {
         Course course = courseRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
-        assertCourseAssignment(course, actorEmail);
-        course.setSubject(findManageableSubject(request.subjectId(), actorEmail));
+        course.setSubject(findManageableSubject(request.subjectId()));
         course.update(request.title().trim(), request.description().trim(), request.category().trim(),
                 request.instructor().trim(), request.level().trim(), request.duration().trim(), request.price(),
                 request.image(), request.accent(), request.published());
         course.reconcilePricePackages(toPricePackages(request.pricePackages(), course));
-        return CourseView.from(course);
+        return CourseView.fromAdmin(course);
     }
 
     private List<PricePackage> toPricePackages(List<PricePackageWriteRequest> requests, Course course) {
@@ -104,40 +89,16 @@ public class CourseService {
         }).toList();
     }
 
-    public void assertCanManageCourse(Long courseId, String actorEmail) {
-        Course course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found"));
-        assertCourseAssignment(course, actorEmail);
-    }
-
-    private void assertCourseAssignment(Course course, String actorEmail) {
-        User actor = requireManager(actorEmail);
-        if (actor.getRole() == Role.ADMIN) return;
-        if (course.getSubject() == null
-                || !assignmentRepository.existsByExpertIdAndSubjectId(actor.getId(), course.getSubject().getId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not assigned to this course subject");
+    public void assertCourseExists(Long courseId) {
+        if (!courseRepository.existsById(courseId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Course not found");
         }
     }
 
-    private Subject findManageableSubject(Long subjectId, String actorEmail) {
-        User actor = requireManager(actorEmail);
-        Subject subject = subjectRepository.findById(subjectId)
+    private Subject findManageableSubject(Long subjectId) {
+        return subjectRepository.findById(subjectId)
                 .filter(Subject::isActive)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose an active subject"));
-        if (actor.getRole() == Role.EXPERT
-                && !assignmentRepository.existsByExpertIdAndSubjectId(actor.getId(), subjectId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not assigned to this subject");
-        }
-        return subject;
-    }
-
-    private User requireManager(String email) {
-        User actor = userRepository.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Account not found"));
-        if (actor.getRole() != Role.ADMIN && actor.getRole() != Role.EXPERT) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Course management is restricted to Admin and Expert");
-        }
-        return actor;
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a valid subject"));
     }
 
     @Transactional

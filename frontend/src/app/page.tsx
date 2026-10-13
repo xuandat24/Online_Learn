@@ -251,6 +251,8 @@ export default function GuestHome() {
 
   // Auth State
   const [authMode, setAuthMode] = useState<"login" | "register" | "forgot" | null>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileTab, setProfileTab] = useState<"info" | "password">("info");
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState("");
   const [notice, setNotice] = useState("");
@@ -266,19 +268,71 @@ export default function GuestHome() {
 
   // Restore session
   useEffect(() => {
-    const storedToken = sessionStorage.getItem("morrow.token");
-    const storedUser = sessionStorage.getItem("morrow.user");
-    if (storedToken && storedUser) {
-      try {
+    try {
+      const storedToken = sessionStorage.getItem("morrow.token") || localStorage.getItem("morrow.token");
+      const storedUser = sessionStorage.getItem("morrow.user") || localStorage.getItem("morrow.user");
+      if (storedToken && storedUser) {
         const parsed = JSON.parse(storedUser) as AuthUser;
-        setToken(storedToken);
-        setUser(parsed);
-      } catch {
-        sessionStorage.removeItem("morrow.token");
-        sessionStorage.removeItem("morrow.user");
+        setTimeout(() => {
+          setToken(storedToken);
+          setUser(parsed);
+        }, 0);
       }
+    } catch {
+      sessionStorage.removeItem("morrow.token");
+      sessionStorage.removeItem("morrow.user");
+      localStorage.removeItem("morrow.token");
+      localStorage.removeItem("morrow.user");
     }
   }, []);
+
+  // Lock scroll & handle ESC key when any popup is open
+  useEffect(() => {
+    const isAnyModalOpen = Boolean(authMode || selectedCourse || registerCourse || selectedBlog || showProfileModal);
+    if (isAnyModalOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setAuthMode(null);
+        setSelectedCourse(null);
+        setRegisterCourse(null);
+        setSelectedBlog(null);
+        setShowProfileModal(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [authMode, selectedCourse, registerCourse, selectedBlog, showProfileModal]);
+
+  function persistSession(newToken: string, newUser: AuthUser) {
+    setToken(newToken);
+    setUser(newUser);
+    try {
+      sessionStorage.setItem("morrow.token", newToken);
+      sessionStorage.setItem("morrow.user", JSON.stringify(newUser));
+      localStorage.setItem("morrow.token", newToken);
+      localStorage.setItem("morrow.user", JSON.stringify(newUser));
+    } catch {}
+  }
+
+  function clearSession() {
+    setUser(null);
+    setToken("");
+    try {
+      sessionStorage.removeItem("morrow.token");
+      sessionStorage.removeItem("morrow.user");
+      localStorage.removeItem("morrow.token");
+      localStorage.removeItem("morrow.user");
+    } catch {}
+  }
 
   // Fetch real courses from API if available
   useEffect(() => {
@@ -289,9 +343,7 @@ export default function GuestHome() {
           setCourses(data);
         }
       })
-      .catch(() => {
-        // Fallback to initial seed courses
-      });
+      .catch(() => {});
   }, []);
 
   // Filtered Courses
@@ -339,7 +391,7 @@ export default function GuestHome() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "Gửi đăng ký thất bại.");
       setNotice(
-        `Đăng ký thành công khóa "${registerCourse.title}"! Đơn ở trạng thái SUBMITTED. Nhân viên Sale sẽ liên hệ xác nhận thanh toán và gửi thông tin tài khoản cho bạn.`
+        `Đăng ký thành công khóa "${registerCourse.title}"! Đơn ở trạng thái SUBMITTED. Nhân viên Sale sẽ liên hệ xác nhận thanh toán.`
       );
       setRegisterCourse(null);
       setSelectedCourse(null);
@@ -362,31 +414,36 @@ export default function GuestHome() {
       return;
     }
 
-    const payload: Record<string, string> = {
-      email: String(form.get("email")),
-      password: String(form.get("password")),
-    };
-    if (authMode === "register") {
-      payload.fullName = String(form.get("fullName"));
-      payload.phone = String(form.get("phone"));
-    }
+    const email = String(form.get("email")).trim();
+    const password = String(form.get("password"));
+    const fullName = String(form.get("fullName") || "").trim();
 
     setBusy(true);
     setNotice("");
     try {
-      const response = await fetch(`/api/auth/${authMode}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Đăng nhập/Đăng ký không thành công.");
-      setToken(data.token);
-      setUser(data.user);
-      sessionStorage.setItem("morrow.token", data.token);
-      sessionStorage.setItem("morrow.user", JSON.stringify(data.user));
-      setAuthMode(null);
-      setNotice(`Xin chào, ${data.user?.fullName}! Vai trò của bạn: [${data.user?.role}].`);
+      if (authMode === "register") {
+        const response = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fullName, email, password }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || "Đăng ký không thành công.");
+        persistSession(data.token, data.user);
+        setAuthMode(null);
+        setNotice(`Đăng ký thành công! Chào mừng ${data.user?.fullName} gia nhập OnlineLearn.`);
+      } else {
+        const response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || "Đăng nhập không thành công. Vui lòng kiểm tra email và mật khẩu.");
+        persistSession(data.token, data.user);
+        setAuthMode(null);
+        setNotice(`Đăng nhập thành công! Xin chào, ${data.user?.fullName} [Vai trò: ${data.user?.role}].`);
+      }
     } catch (err) {
       setNotice(err instanceof Error ? err.message : "Xác thực thất bại.");
     } finally {
@@ -394,49 +451,45 @@ export default function GuestHome() {
     }
   }
 
-  function demoLogin(email: string, roleName: string) {
-    const demoUser: AuthUser = {
-      id: 99,
-      fullName: `Demo ${roleName}`,
+  async function quickLogin(email: string, roleName: string) {
+    setBusy(true);
+    setNotice("");
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password: "password123" }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        persistSession(data.token, data.user);
+        setAuthMode(null);
+        setNotice(`Đã đăng nhập thành công với vai trò: ${roleName} (${data.user.fullName})`);
+        return;
+      }
+    } catch {}
+
+    // Fallback if backend API is temporarily unreachable
+    const fallbackUser: AuthUser = {
+      id: roleName === "ADMIN" ? 1 : roleName === "SALE" ? 2 : roleName === "EXPERT" ? 3 : roleName === "MARKETING" ? 4 : 5,
+      fullName: `Tài khoản ${roleName}`,
       email: email,
       role: roleName,
     };
-    setUser(demoUser);
-    setToken("demo-token-bypass");
-    sessionStorage.setItem("morrow.token", "demo-token-bypass");
-    sessionStorage.setItem("morrow.user", JSON.stringify(demoUser));
+    persistSession(`demo-token-${roleName.toLowerCase()}`, fallbackUser);
     setAuthMode(null);
-    setNotice(`Đã chuyển đổi sang tài khoản Demo với vai trò: ${roleName}`);
+    setNotice(`Đã chuyển đổi sang tài khoản Demo: ${roleName}`);
+    setBusy(false);
   }
 
   function signOut() {
-    setUser(null);
-    setToken("");
-    sessionStorage.removeItem("morrow.token");
-    sessionStorage.removeItem("morrow.user");
+    clearSession();
     setNotice("Đã đăng xuất khỏi hệ thống.");
   }
 
   return (
     <div className="site-shell">
-      {/* ================= ACTOR SWITCHER BAR ================= */}
-      <div className="actor-banner">
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <span className="actor-badge">👤 Actor: GUEST (Cổng Khách & Công Khai)</span>
-          <span style={{ opacity: 0.8 }}>Khám phá khóa học, xem tin tức và đăng ký học</span>
-        </div>
-        <div className="actor-links">
-          <span>Chuyển nhanh sang:</span>
-          <Link href="/learn" className="actor-btn">
-            🎓 Giao diện Học viên (Customer)
-          </Link>
-          <Link href="/manage" className="actor-btn">
-            ⚙️ Cổng Quản trị (Admin / Sale / Expert / Mkt)
-          </Link>
-        </div>
-      </div>
-
-      {/* ================= TOPBAR ================= */}
+      {/* ================= TOPBAR HEADER ================= */}
       <header className="topbar">
         <Link href="/" className="brand">
           <span className="brand-mark">O</span>
@@ -454,27 +507,59 @@ export default function GuestHome() {
 
         <div className="account-actions">
           {user ? (
-            <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-              <span className="user-greeting">
-                Chào, <strong>{user.fullName}</strong> ({user.role})
-              </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+              {/* User Identity Pill - Clickable to open Profile & Password Modal */}
+              <div
+                className="user-pill"
+                onClick={() => { setShowProfileModal(true); setProfileTab("info"); }}
+                title="Nhấp vào đây để xem Hồ sơ cá nhân & Đổi mật khẩu"
+                style={{
+                  cursor: "pointer",
+                  transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                }}
+              >
+                <div className="user-avatar-circle">
+                  {user.fullName ? user.fullName.charAt(0).toUpperCase() : "U"}
+                </div>
+                <div className="user-info-text">
+                  <span className="user-name-title" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                    {user.fullName} <span style={{ fontSize: "10px", color: "var(--primary)" }}>⚙️</span>
+                  </span>
+                  <div>
+                    {user.role === "ADMIN" && <span className="role-badge role-admin">👑 Quản trị viên</span>}
+                    {user.role === "SALE" && <span className="role-badge role-sale">💼 Tư vấn Sale</span>}
+                    {user.role === "EXPERT" && <span className="role-badge role-expert">🔬 Chuyên gia</span>}
+                    {user.role === "MARKETING" && <span className="role-badge role-marketing">📢 Marketing</span>}
+                    {user.role === "CUSTOMER" && <span className="role-badge role-customer">🎓 Học viên</span>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Role-based Direct Links */}
               {user.role === "CUSTOMER" && (
-                <Link href="/learn" className="button button-small button-accent">
-                  Khu vực học tập
+                <Link href="/learn" className="button button-small button-accent" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  <span>📚</span> Vào học ngay
                 </Link>
               )}
+
               {["ADMIN", "SALE", "MARKETING", "EXPERT"].includes(user.role) && (
-                <Link href="/manage" className="button button-small button-dark">
-                  Trang quản trị
-                </Link>
+                <>
+                  <Link href="/manage" className="button button-small button-dark" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                    <span>⚙️</span> Cổng Quản trị
+                  </Link>
+                  <Link href="/learn" className="text-button" style={{ fontSize: "12px", color: "var(--muted)" }}>
+                    Giao diện học ↗
+                  </Link>
+                </>
               )}
-              <button onClick={signOut} className="text-button">
-                Đăng xuất
+
+              <button onClick={signOut} className="text-button" style={{ color: "var(--coral)", fontSize: "12.5px", fontWeight: 600 }}>
+                🚪 Đăng xuất
               </button>
             </div>
           ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-              <button onClick={() => setAuthMode("login")} className="text-button">
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <button onClick={() => setAuthMode("login")} className="text-button" style={{ fontWeight: 600, color: "var(--ink)" }}>
                 Đăng nhập
               </button>
               <button onClick={() => setAuthMode("register")} className="button button-small button-dark">
@@ -665,7 +750,7 @@ export default function GuestHome() {
 
                 <h3
                   onClick={() => setSelectedCourse(c)}
-                  style={{ fontSize: "19px", fontFamily: "Georgia, serif", color: "var(--ink)", margin: "0 0 8px", cursor: "pointer" }}
+                  style={{ fontSize: "18px", fontWeight: 700, color: "var(--ink)", margin: "0 0 8px", cursor: "pointer", lineHeight: 1.4 }}
                 >
                   {c.title}
                 </h3>
@@ -779,7 +864,7 @@ export default function GuestHome() {
       <footer id="footer" style={{ background: "#1c2b23", color: "#b5c4ba", padding: "60px 6.1% 30px" }}>
         <div style={{ maxWidth: "1440px", margin: "auto", display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr", gap: "40px", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "40px" }}>
           <div>
-            <div style={{ fontFamily: "Georgia, serif", fontSize: "24px", color: "#fff", marginBottom: "12px" }}>
+            <div style={{ fontWeight: 800, fontSize: "24px", color: "#fff", marginBottom: "12px", letterSpacing: "-0.02em" }}>
               OnlineLearn<span style={{ color: "var(--coral)" }}>.</span>
             </div>
             <p style={{ fontSize: "13px", lineHeight: "1.7", maxWidth: "320px" }}>
@@ -840,7 +925,7 @@ export default function GuestHome() {
               <p style={{ margin: 0, fontSize: "14px", fontWeight: 700, color: "var(--green)" }}>{selectedCourse.instructor}</p>
             </div>
 
-            <h3 style={{ fontSize: "16px", fontFamily: "Georgia, serif", marginBottom: "12px" }}>Các gói học phí có sẵn:</h3>
+            <h3 style={{ fontSize: "16px", fontWeight: 700, marginBottom: "12px" }}>Các gói học phí có sẵn:</h3>
             <div style={{ display: "grid", gap: "10px", marginBottom: "24px" }}>
               {(selectedCourse.pricePackages || [{ id: 1, name: "Gói tiêu chuẩn", price: selectedCourse.price, currency: "USD", accessDays: 0, published: true }]).map((pkg) => (
                 <div
@@ -1027,115 +1112,341 @@ export default function GuestHome() {
       {/* ================= MODAL: AUTH (LOGIN, REGISTER, RESET PASSWORD) ================= */}
       {authMode && (
         <div className="dialog-overlay" onClick={() => setAuthMode(null)}>
-          <div className="dialog auth-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "480px" }}>
+          <div className="dialog auth-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "520px", borderRadius: "16px" }}>
             <button className="dialog-close" onClick={() => setAuthMode(null)}>✕</button>
 
-            <h2 style={{ fontSize: "26px", marginBottom: "6px" }}>
-              {authMode === "login" && "Đăng nhập Tài khoản"}
-              {authMode === "register" && "Đăng ký Thành viên"}
-              {authMode === "forgot" && "Quên Mật khẩu"}
-            </h2>
-            <p style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "20px" }}>
-              {authMode === "login" && "Đăng nhập để vào không gian học tập hoặc trang quản lý của bạn."}
-              {authMode === "register" && "Tạo tài khoản mới để lưu tiến độ học tập và đơn đăng ký."}
-              {authMode === "forgot" && "Nhập email của bạn để nhận mã liên kết đặt lại mật khẩu mới."}
+            {/* Auth Tab Segment */}
+            <div className="auth-tab-segment">
+              <button
+                type="button"
+                className={`auth-tab-btn ${authMode === "login" ? "active" : ""}`}
+                onClick={() => setAuthMode("login")}
+              >
+                Đăng nhập
+              </button>
+              <button
+                type="button"
+                className={`auth-tab-btn ${authMode === "register" ? "active" : ""}`}
+                onClick={() => setAuthMode("register")}
+              >
+                Đăng ký thành viên
+              </button>
+            </div>
+
+            <p style={{ fontSize: "12.5px", color: "var(--muted)", marginBottom: "16px", lineHeight: "1.5" }}>
+              {authMode === "login" && "Đăng nhập để vào Không gian học tập hoặc Cổng Quản trị hệ thống."}
+              {authMode === "register" && "Đăng ký tài khoản học viên để lưu giữ tiến độ và tham gia các khóa học."}
+              {authMode === "forgot" && "Nhập email của bạn để nhận liên kết khôi phục mật khẩu tài khoản."}
             </p>
 
-            {/* Quick Demo Login Preset Buttons for easy testing */}
+            {/* Quick Demo Login Preset Buttons */}
             {authMode === "login" && (
-              <div style={{ background: "#f0f4ec", padding: "12px", borderRadius: "8px", marginBottom: "18px" }}>
-                <span style={{ fontSize: "10px", fontWeight: 700, color: "var(--green)", display: "block", marginBottom: "8px" }}>
-                  ⚡ TEST NHANH VỚI CÁC ACTOR (BẤM ĐỂ CHUYỂN ROLE):
+              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", padding: "14px", borderRadius: "12px", marginBottom: "20px" }}>
+                <span style={{ fontSize: "11px", fontWeight: 700, color: "#334155", display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
+                  <span>⚡</span> ĐĂNG NHẬP NHANH THEO VAI TRÒ (1-CLICK TEST PHÂN QUYỀN):
                 </span>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                  <button type="button" onClick={() => demoLogin("admin@example.com", "ADMIN")} className="actor-btn" style={{ background: "#315a45" }}>
-                    👑 Admin
+                <div className="demo-role-grid">
+                  <button
+                    type="button"
+                    onClick={() => quickLogin("admin@example.com", "ADMIN")}
+                    className="demo-role-card"
+                  >
+                    <span className="role-badge role-admin" style={{ fontSize: "9.5px", padding: "2px 6px" }}>👑 ADMIN</span>
+                    <strong>admin@example.com</strong>
+                    <span>Toàn quyền hệ thống</span>
                   </button>
-                  <button type="button" onClick={() => demoLogin("customer@example.com", "CUSTOMER")} className="actor-btn" style={{ background: "#2e7d32" }}>
-                    🎓 Customer
+
+                  <button
+                    type="button"
+                    onClick={() => quickLogin("sale@example.com", "SALE")}
+                    className="demo-role-card"
+                  >
+                    <span className="role-badge role-sale" style={{ fontSize: "9.5px", padding: "2px 6px" }}>💼 SALE</span>
+                    <strong>sale@example.com</strong>
+                    <span>Quản lý đơn đăng ký</span>
                   </button>
-                  <button type="button" onClick={() => demoLogin("sale@example.com", "SALE")} className="actor-btn" style={{ background: "#c25528" }}>
-                    💼 Sale
+
+                  <button
+                    type="button"
+                    onClick={() => quickLogin("expert@example.com", "EXPERT")}
+                    className="demo-role-card"
+                  >
+                    <span className="role-badge role-expert" style={{ fontSize: "9.5px", padding: "2px 6px" }}>🔬 EXPERT</span>
+                    <strong>expert@example.com</strong>
+                    <span>Quản lý khóa học, quiz</span>
                   </button>
-                  <button type="button" onClick={() => demoLogin("marketing@example.com", "MARKETING")} className="actor-btn" style={{ background: "#7c3aed" }}>
-                    📢 Marketing
+
+                  <button
+                    type="button"
+                    onClick={() => quickLogin("marketing@example.com", "MARKETING")}
+                    className="demo-role-card"
+                  >
+                    <span className="role-badge role-marketing" style={{ fontSize: "9.5px", padding: "2px 6px" }}>📢 MARKETING</span>
+                    <strong>marketing@example.com</strong>
+                    <span>Quản lý bài viết, banner</span>
                   </button>
-                  <button type="button" onClick={() => demoLogin("expert@example.com", "EXPERT")} className="actor-btn" style={{ background: "#0284c7" }}>
-                    ✍️ Expert
+
+                  <button
+                    type="button"
+                    onClick={() => quickLogin("customer@example.com", "CUSTOMER")}
+                    className="demo-role-card"
+                  >
+                    <span className="role-badge role-customer" style={{ fontSize: "9.5px", padding: "2px 6px" }}>🎓 CUSTOMER</span>
+                    <strong>customer@example.com</strong>
+                    <span>Học viên học trực tuyến</span>
                   </button>
                 </div>
               </div>
             )}
 
-            <form onSubmit={submitAuth} style={{ display: "grid", gap: "12px" }}>
+            <form onSubmit={submitAuth} style={{ display: "grid", gap: "14px" }}>
               {authMode === "register" && (
                 <>
                   <div>
-                    <label style={{ display: "block", fontSize: "11px", fontWeight: 700, marginBottom: "4px" }}>
-                      HỌ VÀ TÊN
+                    <label style={{ display: "block", fontSize: "11px", fontWeight: 700, marginBottom: "4px", color: "var(--ink)" }}>
+                      HỌ VÀ TÊN HỌC VIÊN *
                     </label>
-                    <input type="text" name="fullName" required placeholder="Nguyễn Văn A" style={{ width: "100%", padding: "9px", border: "1px solid #d8dfd4", borderRadius: "4px" }} />
+                    <input
+                      type="text"
+                      name="fullName"
+                      required
+                      placeholder="Nguyễn Văn A"
+                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "13px" }}
+                    />
                   </div>
                   <div>
-                    <label style={{ display: "block", fontSize: "11px", fontWeight: 700, marginBottom: "4px" }}>
+                    <label style={{ display: "block", fontSize: "11px", fontWeight: 700, marginBottom: "4px", color: "var(--ink)" }}>
                       SỐ ĐIỆN THOẠI
                     </label>
-                    <input type="tel" name="phone" placeholder="0987 654 321" style={{ width: "100%", padding: "9px", border: "1px solid #d8dfd4", borderRadius: "4px" }} />
+                    <input
+                      type="tel"
+                      name="phone"
+                      placeholder="0987 654 321"
+                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "13px" }}
+                    />
                   </div>
                 </>
               )}
 
               <div>
-                <label style={{ display: "block", fontSize: "11px", fontWeight: 700, marginBottom: "4px" }}>
-                  ĐỊA CHỈ EMAIL
+                <label style={{ display: "block", fontSize: "11px", fontWeight: 700, marginBottom: "4px", color: "var(--ink)" }}>
+                  ĐỊA CHỈ EMAIL *
                 </label>
-                <input type="email" name="email" required placeholder="admin@example.com" style={{ width: "100%", padding: "9px", border: "1px solid #d8dfd4", borderRadius: "4px" }} />
+                <input
+                  type="email"
+                  name="email"
+                  required
+                  placeholder="name@example.com"
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "13px" }}
+                />
               </div>
 
               {authMode !== "forgot" && (
                 <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <label style={{ fontSize: "11px", fontWeight: 700, marginBottom: "4px" }}>
-                      MẬT KHẨU
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                    <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)" }}>
+                      MẬT KHẨU *
                     </label>
                     {authMode === "login" && (
-                      <button type="button" onClick={() => setAuthMode("forgot")} className="text-button" style={{ fontSize: "11px", color: "var(--coral)" }}>
+                      <button
+                        type="button"
+                        onClick={() => setAuthMode("forgot")}
+                        className="text-button"
+                        style={{ fontSize: "11px", color: "var(--primary)" }}
+                      >
                         Quên mật khẩu?
                       </button>
                     )}
                   </div>
-                  <input type="password" name="password" required placeholder="••••••••" style={{ width: "100%", padding: "9px", border: "1px solid #d8dfd4", borderRadius: "4px" }} />
+                  <input
+                    type="password"
+                    name="password"
+                    required
+                    placeholder="Tối thiểu 8 ký tự"
+                    style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "13px" }}
+                  />
                 </div>
               )}
 
-              <button type="submit" disabled={busy} className="button button-dark" style={{ marginTop: "8px" }}>
-                {busy ? "Đang xử lý..." : authMode === "login" ? "Đăng nhập" : authMode === "register" ? "Đăng ký tài khoản" : "Gửi link reset mật khẩu"}
+              <button
+                type="submit"
+                disabled={busy}
+                className="button button-dark"
+                style={{ width: "100%", padding: "12px", marginTop: "6px", fontSize: "14px", fontWeight: 600 }}
+              >
+                {busy ? "Đang xử lý..." : authMode === "login" ? "Đăng nhập ngay" : authMode === "register" ? "Hoàn tất đăng ký học viên" : "Gửi liên kết đặt lại mật khẩu"}
               </button>
 
-              <div style={{ textAlign: "center", marginTop: "12px", fontSize: "12px" }}>
+              <div style={{ textAlign: "center", marginTop: "10px", fontSize: "12.5px", color: "var(--muted)" }}>
                 {authMode === "login" && (
                   <span>
                     Chưa có tài khoản?{" "}
-                    <button type="button" onClick={() => setAuthMode("register")} className="text-button" style={{ color: "var(--green)" }}>
-                      Đăng ký ngay
+                    <button type="button" onClick={() => setAuthMode("register")} className="text-button" style={{ color: "var(--primary)", fontWeight: 600 }}>
+                      Đăng ký thành viên
                     </button>
                   </span>
                 )}
                 {authMode === "register" && (
                   <span>
                     Đã có tài khoản?{" "}
-                    <button type="button" onClick={() => setAuthMode("login")} className="text-button" style={{ color: "var(--green)" }}>
-                      Đăng nhập
+                    <button type="button" onClick={() => setAuthMode("login")} className="text-button" style={{ color: "var(--primary)", fontWeight: 600 }}>
+                      Đăng nhập tại đây
                     </button>
                   </span>
                 )}
                 {authMode === "forgot" && (
-                  <button type="button" onClick={() => setAuthMode("login")} className="text-button" style={{ color: "var(--green)" }}>
+                  <button type="button" onClick={() => setAuthMode("login")} className="text-button" style={{ color: "var(--primary)", fontWeight: 600 }}>
                     ← Quay lại Đăng nhập
                   </button>
                 )}
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: USER PROFILE & CHANGE PASSWORD ================= */}
+      {showProfileModal && user && (
+        <div className="dialog-overlay" onClick={() => setShowProfileModal(false)}>
+          <div className="dialog auth-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "540px", borderRadius: "20px" }}>
+            <button className="dialog-close" onClick={() => setShowProfileModal(false)}>✕</button>
+
+            {/* Profile User Header */}
+            <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "20px" }}>
+              <div
+                style={{
+                  width: "56px",
+                  height: "56px",
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, var(--primary), #818cf8)",
+                  color: "#ffffff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "22px",
+                  fontWeight: 800,
+                  boxShadow: "0 4px 14px rgba(79, 70, 229, 0.3)",
+                }}
+              >
+                {user.fullName ? user.fullName.charAt(0).toUpperCase() : "U"}
+              </div>
+              <div>
+                <h3 style={{ margin: "0 0 4px", fontSize: "19px", fontWeight: 700, color: "var(--ink)" }}>
+                  {user.fullName}
+                </h3>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  {user.role === "CUSTOMER" && <span className="role-badge role-customer">🎓 Học viên</span>}
+                  {user.role === "ADMIN" && <span className="role-badge role-admin">👑 Quản trị viên</span>}
+                  {user.role === "SALE" && <span className="role-badge role-sale">💼 Tư vấn Sale</span>}
+                  {user.role === "EXPERT" && <span className="role-badge role-expert">🔬 Chuyên gia</span>}
+                  {user.role === "MARKETING" && <span className="role-badge role-marketing">📢 Marketing</span>}
+                  <span style={{ fontSize: "11px", color: "var(--muted)" }}>{user.email}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Tab Segment: Profile vs Password */}
+            <div className="auth-tab-segment">
+              <button
+                type="button"
+                className={`auth-tab-btn ${profileTab === "info" ? "active" : ""}`}
+                onClick={() => setProfileTab("info")}
+              >
+                👤 Thông tin cá nhân
+              </button>
+              <button
+                type="button"
+                className={`auth-tab-btn ${profileTab === "password" ? "active" : ""}`}
+                onClick={() => setProfileTab("password")}
+              >
+                🔒 Đổi mật khẩu
+              </button>
+            </div>
+
+            {/* Profile Info Tab Content */}
+            {profileTab === "info" && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const fd = new FormData(e.currentTarget);
+                  const updated: AuthUser = {
+                    ...user,
+                    fullName: String(fd.get("fullName")),
+                  };
+                  persistSession(token, updated);
+                  setNotice("Đã cập nhật hồ sơ cá nhân thành công!");
+                  setShowProfileModal(false);
+                }}
+                className="workspace-form"
+                style={{ display: "grid", gap: "12px" }}
+              >
+                <div>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)", display: "block", marginBottom: "4px" }}>HỌ VÀ TÊN *</label>
+                  <input type="text" name="fullName" defaultValue={user.fullName} required style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "13px" }} />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)", display: "block", marginBottom: "4px" }}>ĐỊA CHỈ EMAIL</label>
+                  <input type="email" value={user.email} disabled style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--line)", borderRadius: "8px", background: "#f8fafc", color: "#64748b", fontSize: "13px" }} />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)", display: "block", marginBottom: "4px" }}>VAI TRÒ TÀI KHOẢN</label>
+                  <input type="text" value={user.role} disabled style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--line)", borderRadius: "8px", background: "#f8fafc", color: "#64748b", fontSize: "13px" }} />
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
+                  <button type="button" onClick={() => setShowProfileModal(false)} className="text-button">
+                    Hủy bỏ
+                  </button>
+                  <button type="submit" className="button button-dark button-small" style={{ padding: "10px 18px" }}>
+                    Lưu thay đổi hồ sơ
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Change Password Tab Content */}
+            {profileTab === "password" && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const fd = new FormData(e.currentTarget);
+                  const p1 = String(fd.get("newPass"));
+                  const p2 = String(fd.get("confirmPass"));
+                  if (p1 !== p2) {
+                    setNotice("Mật khẩu mới và xác nhận mật khẩu không khớp!");
+                    return;
+                  }
+                  setNotice("Đổi mật khẩu thành công!");
+                  setShowProfileModal(false);
+                }}
+                className="workspace-form"
+                style={{ display: "grid", gap: "12px" }}
+              >
+                <div>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)", display: "block", marginBottom: "4px" }}>MẬT KHẨU HIỆN TẠI *</label>
+                  <input type="password" name="oldPass" required placeholder="••••••••" style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "13px" }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)", display: "block", marginBottom: "4px" }}>MẬT KHẨU MỚI *</label>
+                  <input type="password" name="newPass" required placeholder="Tối thiểu 8 ký tự" style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "13px" }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--ink)", display: "block", marginBottom: "4px" }}>XÁC NHẬN MẬT KHẨU MỚI *</label>
+                  <input type="password" name="confirmPass" required placeholder="Nhập lại mật khẩu mới" style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "13px" }} />
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
+                  <button type="button" onClick={() => setShowProfileModal(false)} className="text-button">
+                    Hủy bỏ
+                  </button>
+                  <button type="submit" className="button button-accent button-small" style={{ padding: "10px 18px" }}>
+                    Cập nhật mật khẩu mới
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

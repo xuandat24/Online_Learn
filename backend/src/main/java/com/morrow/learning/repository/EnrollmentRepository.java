@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 
 public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
     boolean existsByUserIdAndCourseId(Long userId, Long courseId);
+    boolean existsByUserId(Long userId);
     List<Enrollment> findAllByUserIdOrderByCreatedAtDesc(Long userId);
     List<Enrollment> findAllByOrderByCreatedAtDesc();
 

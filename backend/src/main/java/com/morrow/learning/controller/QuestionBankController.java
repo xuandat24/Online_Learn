@@ -5,6 +5,7 @@ import com.morrow.learning.repository.QuestionBankRepository;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -27,15 +28,18 @@ public class QuestionBankController {
     @GetMapping
     public List<QuestionBankItem> list(
             @RequestParam(required = false) String subject,
-            @RequestParam(required = false) String level) {
-        if (subject != null && !subject.isBlank() && level != null && !level.isBlank()) {
-            return questionBankRepository.findBySubjectAndLevel(subject, level);
-        } else if (subject != null && !subject.isBlank()) {
-            return questionBankRepository.findBySubject(subject);
-        } else if (level != null && !level.isBlank()) {
-            return questionBankRepository.findByLevel(level);
-        }
-        return questionBankRepository.findAll();
+            @RequestParam(required = false) String level,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String status) {
+        return questionBankRepository.findAll().stream()
+                .filter(item -> subject == null || subject.isBlank() || item.getSubject().equalsIgnoreCase(subject))
+                .filter(item -> level == null || level.isBlank() || item.getLevel().equalsIgnoreCase(level))
+                .filter(item -> status == null || status.isBlank() || item.getStatus().equalsIgnoreCase(status))
+                .filter(item -> search == null || search.isBlank()
+                        || item.getPrompt().toLowerCase().contains(search.trim().toLowerCase())
+                        || item.getLessonTitle() != null
+                        && item.getLessonTitle().toLowerCase().contains(search.trim().toLowerCase()))
+                .toList();
     }
 
     @PostMapping
@@ -63,5 +67,14 @@ public class QuestionBankController {
         item.setExplanation(updated.getExplanation());
         item.setStatus(updated.getStatus());
         return questionBankRepository.save(item);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id) {
+        if (!questionBankRepository.existsById(id)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Question not found");
+        }
+        questionBankRepository.deleteById(id);
     }
 }

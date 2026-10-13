@@ -5,9 +5,12 @@ import com.morrow.learning.dto.AdminUserView;
 import com.morrow.learning.dto.RoleUpdateRequest;
 import com.morrow.learning.service.AdminUserService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,12 +18,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/admin/users")
-@PreAuthorize("hasRole('ADMIN')")
 public class AdminUserController {
     private final AdminUserService adminUserService;
 
@@ -29,16 +32,36 @@ public class AdminUserController {
     }
 
     @GetMapping
-    public List<AdminUserView> list() {
-        return adminUserService.list();
+    public List<AdminUserView> list(
+            @RequestParam(required = false) Role role,
+            @RequestParam(required = false) String search) {
+        return adminUserService.list(role, search);
     }
 
-    public record CreateUserRequest(String fullName, String email, String password, Role role, String phone, String gender) {}
-    public record UpdateUserRequest(String fullName, String phone, String gender, Role role, String status) {}
+    @GetMapping("/{id}")
+    public AdminUserView get(@PathVariable Long id) {
+        return adminUserService.getUser(id);
+    }
+
+    public record CreateUserRequest(
+            @NotBlank @Size(max = 120) String fullName,
+            @NotBlank @Email @Size(max = 190) String email,
+            String password,
+            Role role,
+            @Size(max = 30) String phone,
+            @Size(max = 20) String gender) {}
+
+    public record UpdateUserRequest(
+            @NotBlank @Size(max = 120) String fullName,
+            @Size(max = 30) String phone,
+            @Size(max = 20) String gender,
+            Role role,
+            String status,
+            String password) {}
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public AdminUserView create(@RequestBody CreateUserRequest request) {
+    public AdminUserView create(@Valid @RequestBody CreateUserRequest request) {
         return adminUserService.createUser(
                 request.fullName(),
                 request.email(),
@@ -50,19 +73,26 @@ public class AdminUserController {
     }
 
     @PutMapping("/{id}")
-    public AdminUserView update(@PathVariable Long id, @RequestBody UpdateUserRequest request) {
+    public AdminUserView update(@PathVariable Long id, @Valid @RequestBody UpdateUserRequest request) {
         return adminUserService.updateUser(
                 id,
                 request.fullName(),
                 request.phone(),
                 request.gender(),
                 request.role(),
-                request.status()
+                request.status(),
+                request.password()
         );
     }
 
     @PatchMapping("/{id}/role")
     public AdminUserView updateRole(@PathVariable Long id, @Valid @RequestBody RoleUpdateRequest request) {
         return adminUserService.updateRole(id, request.role());
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id) {
+        adminUserService.deleteUser(id);
     }
 }
