@@ -64,6 +64,9 @@ public class Registration {
     private LocalDateTime updatedAt;
     private LocalDateTime paidAt;
 
+    @Column(length = 255)
+    private String cancellationReason;
+
     protected Registration() {
     }
 
@@ -112,11 +115,12 @@ public class Registration {
         this.loginEmailSent = loginEmailSent;
     }
 
-    public void cancel() {
+    public void cancel(String reason) {
         if (status != RegistrationStatus.SUBMITTED) {
             throw new IllegalStateException("Only submitted registrations can be cancelled");
         }
-        status = RegistrationStatus.CANCELLED;
+        this.status = RegistrationStatus.CANCELLED;
+        this.cancellationReason = reason;
     }
 
     public Long getId() { return id; }
@@ -133,4 +137,5 @@ public class Registration {
     public LocalDateTime getSubmittedAt() { return submittedAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public LocalDateTime getPaidAt() { return paidAt; }
+    public String getCancellationReason() { return cancellationReason; }
 }

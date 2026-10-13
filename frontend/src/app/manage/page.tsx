@@ -249,6 +249,20 @@ export default function AdminPortal() {
         if (Array.isArray(data) && data.length > 0) setRegistrations(data);
       })
       .catch(() => {});
+
+    fetch("/api/admin/posts", { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data: Post[]) => {
+        if (Array.isArray(data) && data.length > 0) setPosts(data);
+      })
+      .catch(() => {});
+
+    fetch("/api/admin/sliders", { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data: Slider[]) => {
+        if (Array.isArray(data) && data.length > 0) setSliders(data);
+      })
+      .catch(() => {});
   }, [token]);
 
   // Sale Confirm Payment & Provision Course
@@ -895,6 +909,13 @@ export default function AdminPortal() {
                                 setRegistrations((prev) =>
                                   prev.map((item) => (item.id === r.id ? { ...item, status: "CANCELLED" } : item))
                                 );
+                                if (token) {
+                                  const reason = prompt("Lý do hủy đơn?") || "Khách hàng yêu cầu hủy";
+                                  fetch(`/api/sales/registrations/${r.id}/cancel?reason=${encodeURIComponent(reason)}`, {
+                                    method: "POST",
+                                    headers: { Authorization: `Bearer ${token}` },
+                                  }).catch(() => {});
+                                }
                                 setNotice(`Đã hủy đơn #${r.id}.`);
                               }}
                               className="quiet-button"
@@ -966,18 +987,27 @@ export default function AdminPortal() {
               </div>
               <button
                 onClick={() => {
-                  const newPost: Post = {
-                    id: Date.now(),
+                  const newPost = {
                     title: "Bài viết mới đăng bởi Marketing",
                     category: "Development",
                     author: user.fullName,
                     status: "PUBLISHED",
-                    createdAt: new Date().toISOString().split("T")[0],
                     summary: "Tóm tắt ngắn gọn nội dung bài viết mới...",
                     content: "Nội dung bài viết mới đầy đủ...",
                   };
-                  setPosts([newPost, ...posts]);
-                  setNotice("Đã thêm bài viết mới thành công!");
+                  if (token) {
+                    fetch("/api/admin/posts", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                      body: JSON.stringify(newPost)
+                    }).then(res => res.json()).then(data => {
+                      setPosts([data, ...posts]);
+                      setNotice("Đã thêm bài viết mới thành công!");
+                    }).catch(() => {});
+                  } else {
+                    setPosts([{ ...newPost, id: Date.now(), createdAt: new Date().toISOString() } as any, ...posts]);
+                    setNotice("Đã thêm bài viết mới (offline)!");
+                  }
                 }}
                 className="button button-dark"
               >
@@ -1012,11 +1042,19 @@ export default function AdminPortal() {
                       <td>
                         <button
                           onClick={() => {
+                            const newStatus = p.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED";
                             setPosts((prev) =>
                               prev.map((item) =>
-                                item.id === p.id ? { ...item, status: item.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED" } : item
+                                item.id === p.id ? { ...item, status: newStatus } : item
                               )
                             );
+                            if (token) {
+                              fetch(`/api/admin/posts/${p.id}`, {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                                body: JSON.stringify({ ...p, status: newStatus })
+                              }).catch(() => {});
+                            }
                             setNotice(`Đã đổi trạng thái bài viết "${p.title}".`);
                           }}
                           className="quiet-button"
@@ -1045,17 +1083,27 @@ export default function AdminPortal() {
               </div>
               <button
                 onClick={() => {
-                  const newSlider: Slider = {
-                    id: Date.now(),
-                    title: "Ưu đãi Khóa học Mùa thu 2026",
+                  const newSlider = {
+                    title: "Ưu đãi Khóa học Mới 2026",
                     tag: "Khuyến mãi",
                     image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f",
                     backlink: "/#courses",
                     status: "ACTIVE",
                     displayOrder: sliders.length + 1,
                   };
-                  setSliders([...sliders, newSlider]);
-                  setNotice("Đã thêm banner slider mới!");
+                  if (token) {
+                    fetch("/api/admin/sliders", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                      body: JSON.stringify(newSlider)
+                    }).then(res => res.json()).then(data => {
+                      setSliders([...sliders, data]);
+                      setNotice("Đã thêm banner slider mới!");
+                    }).catch(() => {});
+                  } else {
+                    setSliders([...sliders, { ...newSlider, id: Date.now() } as any]);
+                    setNotice("Đã thêm banner slider mới (offline)!");
+                  }
                 }}
                 className="button button-dark"
               >
@@ -1090,11 +1138,19 @@ export default function AdminPortal() {
                       <td>
                         <button
                           onClick={() => {
+                            const newStatus = s.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
                             setSliders((prev) =>
                               prev.map((item) =>
-                                item.id === s.id ? { ...item, status: item.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" } : item
+                                item.id === s.id ? { ...item, status: newStatus } : item
                               )
                             );
+                            if (token) {
+                              fetch(`/api/admin/sliders/${s.id}`, {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                                body: JSON.stringify({ ...s, status: newStatus })
+                              }).catch(() => {});
+                            }
                             setNotice(`Đã đổi trạng thái slider "${s.title}".`);
                           }}
                           className="quiet-button"

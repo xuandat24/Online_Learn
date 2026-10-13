@@ -15,11 +15,15 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.morrow.learning.service.MarketingService;
+
 @RestController
 public class PostController {
+    private final MarketingService marketingService;
     private final PostRepository postRepository;
 
-    public PostController(PostRepository postRepository) {
+    public PostController(MarketingService marketingService, PostRepository postRepository) {
+        this.marketingService = marketingService;
         this.postRepository = postRepository;
     }
 
@@ -39,32 +43,23 @@ public class PostController {
 
     @GetMapping("/api/admin/posts")
     public List<Post> getAllAdminPosts() {
-        return postRepository.findAllByOrderByCreatedAtDesc();
+        return marketingService.getAllPosts();
     }
 
     @PostMapping("/api/admin/posts")
     @ResponseStatus(HttpStatus.CREATED)
     public Post createPost(@RequestBody Post post) {
-        return postRepository.save(post);
+        return marketingService.createPost(post);
     }
 
     @PutMapping("/api/admin/posts/{id}")
     public Post updatePost(@PathVariable Long id, @RequestBody Post updated) {
-        var post = postRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found"));
-        post.setTitle(updated.getTitle());
-        post.setCategory(updated.getCategory());
-        post.setAuthor(updated.getAuthor());
-        post.setStatus(updated.getStatus());
-        post.setSummary(updated.getSummary());
-        post.setContent(updated.getContent());
-        post.setImage(updated.getImage());
-        return postRepository.save(post);
+        return marketingService.updatePost(id, updated);
     }
 
     @DeleteMapping("/api/admin/posts/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deletePost(@PathVariable Long id) {
-        postRepository.deleteById(id);
+        marketingService.deletePost(id);
     }
 }

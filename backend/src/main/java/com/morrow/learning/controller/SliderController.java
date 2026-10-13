@@ -14,11 +14,15 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.morrow.learning.service.MarketingService;
+
 @RestController
 public class SliderController {
+    private final MarketingService marketingService;
     private final SliderRepository sliderRepository;
 
-    public SliderController(SliderRepository sliderRepository) {
+    public SliderController(MarketingService marketingService, SliderRepository sliderRepository) {
+        this.marketingService = marketingService;
         this.sliderRepository = sliderRepository;
     }
 
@@ -29,31 +33,23 @@ public class SliderController {
 
     @GetMapping("/api/admin/sliders")
     public List<Slider> getAllAdminSliders() {
-        return sliderRepository.findAllByOrderByDisplayOrderAsc();
+        return marketingService.getAllSliders();
     }
 
     @PostMapping("/api/admin/sliders")
     @ResponseStatus(HttpStatus.CREATED)
     public Slider createSlider(@RequestBody Slider slider) {
-        return sliderRepository.save(slider);
+        return marketingService.createSlider(slider);
     }
 
     @PutMapping("/api/admin/sliders/{id}")
     public Slider updateSlider(@PathVariable Long id, @RequestBody Slider updated) {
-        var slider = sliderRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Slider not found"));
-        slider.setTitle(updated.getTitle());
-        slider.setTag(updated.getTag());
-        slider.setImage(updated.getImage());
-        slider.setBacklink(updated.getBacklink());
-        slider.setStatus(updated.getStatus());
-        slider.setDisplayOrder(updated.getDisplayOrder());
-        return sliderRepository.save(slider);
+        return marketingService.updateSlider(id, updated);
     }
 
     @DeleteMapping("/api/admin/sliders/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteSlider(@PathVariable Long id) {
-        sliderRepository.deleteById(id);
+        marketingService.deleteSlider(id);
     }
 }
