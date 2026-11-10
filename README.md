@@ -1,89 +1,93 @@
-# Morrow Online Learning
+# OnlineLearn
 
-Online-learning platform for public course discovery, price-package registration, Sale payment confirmation, paid course access, and assigned Expert content management.
+React/Vite + Spring Boot MVC + Spring Security/JWT + Spring Data JPA + Microsoft SQL Server. Node is used only for frontend tooling. Guest is anonymous; the six account roles are Customer, Admin, Author, Sale, Marketing and Staff. Staff has no management permissions.
 
-## Stack
+## Run on this Windows machine
 
-- Frontend: Next.js App Router, React, TypeScript
-- Backend: Spring Boot 3.5, Java 17, Spring Security, JWT
-- Database: MySQL 8.4 with Spring Data JPA
-- Deployment: Docker Compose
+Java 17+, Maven, Node 20.19+ and SQL Server are required. Existing code is in `backend/` and `frontend/`. Windows protected Documents folders prevented build tools from writing normally, so the launch scripts mirror source into `%TEMP%\onlinelearn-build` and run there. Repository source remains authoritative.
 
-## Run with Docker
+1. Fill `.env.local` (ignored by Git), using `.env.example` as the reference. Do not put secrets in committed files.
+2. Use an existing SQL login with access to `OnlineLearnDB`. Set:
 
-1. Copy `.env.example` to `.env` and replace every example password and the JWT secret with unique values. Keep `.env` private.
-2. Start the stack from this directory:
-
-   ```sh
-   docker compose up --build -d
+   ```dotenv
+   DB_URL=jdbc:sqlserver://127.0.0.1:14333;databaseName=OnlineLearnDB;encrypt=true;trustServerCertificate=true
+   DB_USERNAME=your_existing_sql_login
+   DB_PASSWORD=your_sql_password
+   JWT_SECRET=at_least_32_random_bytes_as_a_string
+   FRONTEND_URL=http://localhost:5173
    ```
 
-3. Open the frontend at `http://localhost:3000`. The API is available at `http://localhost:8080`; health is at `/actuator/health`.
-4. The first startup creates sample courses. If `ADMIN_EMAIL` and `ADMIN_PASSWORD` are set, an admin account is created once.
+   The example above uses a SQL login. On this machine, Windows Integrated Authentication has been verified against the existing IPv6 loopback listener on port 14333. Use the [Windows Authentication configuration](docs/windows-authentication.md) for that mode. Use a trusted server certificate instead of `trustServerCertificate=true` for a deployed system.
+3. Start two PowerShell terminals at the repository root:
 
-Configure `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`, `MAIL_SMTP_AUTH`, and `MAIL_SMTP_STARTTLS` for a real SMTP provider. Sale approval rolls back if a new customer's login email cannot be delivered.
+   ```powershell
+   .\scripts\start-backend.ps1
+   .\scripts\start-frontend.ps1
+   ```
 
-To stop the stack, run `docker compose down`. Add `-v` only when you intentionally want to delete the MySQL data volume.
+   Backend: `http://127.0.0.1:8080/actuator/health`. Frontend: `http://localhost:5173` or `http://127.0.0.1:5173`.
+4. If this Windows Java runtime reports `Unable to establish loopback connection` with `UnixDomainSockets.connect`, add `OLS_WINDOWS_TCP_PIPES=true` to `.env.local`. The launcher sets a JVM-only temporary socket-directory option to use the JDK TCP fallback; it does not change machine settings. A development JWT key is generated for the process if omitted; set a persistent strong `JWT_SECRET` to keep sessions valid across restarts.
 
-## Run locally
+For machines where the repository is writable, normal commands work too:
 
-Start MySQL 8.4, then run the backend from `backend`:
-
-```sh
+```powershell
+cd backend
+mvn test package
 mvn spring-boot:run
-```
-
-Run the frontend from `frontend`:
-
-```sh
-npm install
+# Other terminal, from frontend:
+npm ci
 npm run dev
+npm run build
 ```
 
-The Next.js server proxies `/api/*` to `API_INTERNAL_URL` (default `http://localhost:8080`).
+Export environment variables before direct Maven commands; Spring does not read `.env.local` automatically. The launcher does.
 
-## API
+## SQL migrations
 
-| Method | Endpoint | Access | Purpose |
-| --- | --- | --- | --- |
-| `GET` | `/api/courses?search=&category=` | Guest | Search published courses and published price packages |
-| `GET` | `/api/courses/{id}` | Guest | View course details |
-| `POST` | `/api/auth/register` | Guest | Create a Customer account |
-| `POST` | `/api/auth/login` | Guest | Receive a JWT |
-| `POST` | `/api/registrations` | Guest, Customer | Submit a registration against a published price package |
-| `GET` | `/api/registrations/me` | Customer | List own registration requests |
-| `PUT`, `DELETE` | `/api/registrations/{id}` | Customer owner | Edit/cancel while status is `SUBMITTED` |
-| `GET` | `/api/sales/registrations` | Admin, Sale | Review submitted requests |
-| `PATCH` | `/api/sales/registrations/{id}/paid` | Admin, Sale | Confirm payment, create a Customer if needed, grant access, email login details |
-| `GET` | `/api/enrollments/me` | Customer | List active course access |
-| `GET` | `/api/admin/courses` | Admin, assigned Expert | List manageable courses |
-| `POST`, `PUT` | `/api/admin/courses[/{id}]` | Admin, assigned Expert | Create/update courses and price packages |
-| `DELETE` | `/api/admin/courses/{id}` | Admin | Delete a course |
-| `GET`, `POST`, `PUT` | `/api/admin/subjects[/{id}]` | Admin | Manage Subjects |
-| `PUT`, `DELETE` | `/api/admin/subjects/{id}/experts/{expertId}` | Admin | Assign/unassign an Expert |
-| `GET`, `POST`, `PUT`, `DELETE` | `/api/admin/courses/{courseId}/lessons[/{lessonId}]` | Admin, assigned Expert | Manage lessons |
-| `GET`, `POST`, `PUT`, `DELETE` | `/api/admin/courses/{courseId}/quizzes[/{quizId}]` | Admin, assigned Expert | Manage quizzes/questions; locked after first attempt |
-| `GET` | `/api/learning/courses/{courseId}` | Customer with active access | Load course lessons and quizzes |
-| `PUT` | `/api/learning/lessons/{lessonId}/progress` | Customer with active access | Save lesson completion |
-| `GET` | `/api/learning/quizzes/{quizId}` | Customer with active access | Load quiz without answer keys |
-| `POST` | `/api/learning/quizzes/{quizId}/attempts` | Customer with active access | Start or resume an attempt |
-| `GET`, `PUT` | `/api/learning/attempts/{attemptId}[/answers/{questionId}]` | Attempt owner with active access | Read/resume and persist answers |
-| `POST` | `/api/learning/attempts/{attemptId}/submit` | Attempt owner with active access | Submit and score an attempt |
-| `GET` | `/api/admin/users` | Admin | List platform accounts |
-| `PATCH` | `/api/admin/users/{id}/role` | Admin | Assign an internal role |
+Flyway applies `backend/src/main/resources/db/migration/V1__sdd_schema.sql` and `V2__integrity_and_notifications.sql`, then Hibernate validates mappings. V1 preserves the supplied 20-table SDD design. V2 adds the mail outbox, purchase-duration snapshots, token invalidation and uniqueness checks. No application startup uses `ddl-auto=update` or drops tables.
 
-New accounts always receive the `CUSTOMER` role. `GUEST` is an anonymous visitor role; internal roles (`MARKETING`, `SALE`, `EXPERT`, `ADMIN`) must be provisioned by trusted operations. Admin assigns Experts to Subjects, and an Expert can manage only courses within assigned Subjects. Passwords are BCrypt-hashed and protected endpoints require a bearer token.
+**Do not execute `database/OnlineLearn_Database.reference.sql` against existing data**: it is the unchanged supplied reference and includes DROP TABLE statements. An existing manually initialized database needs a deliberate Flyway baseline after schema comparison; do not enable automatic baselining blindly.
 
-## Deployment notes
+Migration validation created isolated databases `OnlineLearn_Verification_20261110` (diagnostic partial run) and `OnlineLearn_Verification_20261110_v2` (successful clean V1/V2 run, 21 tables, 25 CHECK constraints). `OnlineLearnDB` was not populated or reset during this verification.
 
-- Configure `JWT_SECRET`, database credentials, admin credentials, SMTP credentials, and `CORS_ALLOWED_ORIGINS` using the deployment platform's secret manager. Do not use `.env.example` values in production.
-- MySQL is only bound to loopback in the local Compose setup. For a hosted deployment, use a private managed database and remove the local `db` service.
-- Hibernate schema update is convenient for this MVP. Before production data migrations, replace `ddl-auto: update` with Flyway or Liquibase migrations and a validate-only schema mode.
-- New registrations always start `SUBMITTED`. A Guest cannot submit with an email that already has an account; they must sign in. Duplicate `SUBMITTED` or `PAID` registrations for the same course/email are rejected. Only Sale/Admin can mark a request `PAID`; Customer edit/cancel is allowed only before that transition, and an edit cannot transfer the request to another email. A new email creates a Customer account with a random temporary password, which is emailed after payment confirmation. SMTP must be configured for this flow.
-- Payment capture is manual; a payment gateway is not integrated. Both free and paid packages require Sale confirmation, so there is no enrollment-to-access shortcut.
-- A `PAID` registration creates active course access. Package `accessDays: 0` means no expiry; positive values create an expiry. Every learning endpoint checks current access.
-- Quiz answers are persisted after each selection, unfinished attempts resume from the server, and learner quiz responses omit correct-answer keys. Every question must be answered before submission. Quiz edit/delete is blocked after the first attempt.
-- API DTOs apply server-side Bean Validation; browser forms also constrain required fields, lengths, ranges, email, phone, URL, currency, and quiz answers. Server validation remains authoritative.
-- Lesson/video delivery and quiz/progress APIs are implemented; video hosting/transcoding, password reset, marketing posts/banners, and a dedicated Marketing dashboard remain future modules.
-- Run backend integration tests with `mvn -f backend/pom.xml -DforkCount=0 clean test`. They use H2 and mock SMTP delivery.
-- Demo course photography is loaded from Unsplash URLs; replace with owned/licensed assets or an image CDN for production.
+## First administrator and optional demo data
+
+For a fresh empty users table, configure `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` before the first launch. The bootstrap account is an explicitly configured local administrator. Remove those variables after initialization. An Admin invites Authors and other users; invitations send a password-setup link.
+
+For demonstration only, set `DEMO_SEED=true` and a strong `DEMO_PASSWORD`. This creates `[DEMO]` users at `{role}@onlinelearn.test`, reference settings, a published sample course/package, lesson, question, quiz and post. Seeding does not overwrite existing accounts or fabricate paid registrations/access. All six demo account roles use the configured demo password. Disable seeding for normal use.
+
+## Gmail
+
+Set `GMAIL_USERNAME`, `GMAIL_APP_PASSWORD` and `MAIL_MODE=smtp`. SMTP uses Gmail port 587 with STARTTLS. `FRONTEND_URL` must match the reachable frontend URL for email links. Verification and reset tokens are hashed in `auth_tokens`, expire and are single-use. Mail is queued transactionally and retried by the outbox worker. The worker removes delivered token links from stored message bodies.
+
+For local email-flow testing without sending real messages, explicitly set `MAIL_MODE=file` and optionally `MAIL_DIRECTORY`. Messages are written as `.eml` with a **LOCAL TEST ONLY - NOT SENT** header; default path is `.runtime/mail` relative to the temporary build directory. This does not establish real Gmail delivery. With SMTP credentials missing, messages stay Pending and login remains blocked until email verification.
+
+## VNPAY sandbox
+
+Configure your own `VNPAY_TMN_CODE` and `VNPAY_HASH_SECRET`; obtain them from the [official sandbox registration](https://sandbox.vnpayment.vn/devreg/). Configure `VNPAY_RETURN_URL` to the frontend `/payment/return` route. Register an externally reachable HTTPS IPN endpoint pointing to `/api/payments/vnpay/ipn` on the Spring backend. Localhost cannot receive a provider's external callback.
+
+Implementation follows VNPAY 2.1.0 [checkout/IPN](https://sandbox.vnpayment.vn/apis/docs/thanh-toan-pay/pay.html) and [querydr](https://sandbox.vnpayment.vn/apis/docs/truy-van-hoan-tien/querydr%26refund.html). Amounts are VND converted to VNPAY minor units. Backend verifies signatures, merchant, order, amount and transaction status. Only verified success changes a registration to Paid and grants one course access. Unknown results remain Pending. Browser return parameters never grant access. Admin/Sale can request a signed `querydr` recheck; no API accepts a manually supplied Paid status.
+
+Missing credentials return HTTP 503, leaving the registration Submitted. No production credential or successful payment is invented. Real sandbox checkout, IPN delivery and querydr still need verification with the merchant's credentials.
+
+## Checks and remaining verification
+
+Verified on 2026-11-10: `mvn test package` passed **19 tests** with no failures/errors; `npm run build` passed; Playwright passed **4 browser tests** against the isolated real Spring server. The main application subsequently connected to **OnlineLearnDB on SQL Server**, Flyway applied V1/V2, Hibernate validated mappings, and `/actuator/health` returned UP. A Chrome smoke check verified actual React form login, a Guest Submitted registration persisted in SQL Server, and denial of unpaid learning access. VNPAY credentials are still absent; the actual sandbox transaction remains unverified.
+
+- Maven unit/API integration tests cover signatures, failed/pending/cancelled/duplicate callbacks, snapshot duration, authorization, course ownership, protected lesson access, quiz answer storage/grading, quiz immutability and access expiry.
+- Integration and browser fixtures use **H2 only in test source/classpath**. The production JAR has no H2 driver and uses SQL Server. Passing those tests does not prove a production SQL Server JDBC connection.
+- Playwright tests call a real isolated Spring HTTP server and check guest registration, missing-payment-configuration state, Admin workspace, form-based Admin/Author course/lesson creation and mobile layout. `BrowserTestServer` is test-only and never included in the production JAR.
+- The main SQL Server runtime has been verified with the SQL login supplied privately in `.env.local`. Gmail delivery and actual VNPAY sandbox transactions remain unverified without credentials. `MAIL_MODE=file` is enabled for local testing; SMTP health checking is optional (`SMTP_HEALTH_CHECK=true` enables it).
+- Question import uses a downloadable JSON template (up to 100 questions per batch, all-or-nothing validation). CSV/Excel import is not implemented; the SDD leaves the import format open. Advanced dashboard analytics are outside the supplied MVP scope.
+
+To prepare the test-only browser server:
+
+```powershell
+python scripts/prepare-runtime.py
+cd "$env:TEMP\onlinelearn-build\backend"
+mvn test-compile dependency:build-classpath '-Dmdep.outputFile=test-classpath.txt' '-DincludeScope=test'
+$olsClasspath = 'target/test-classes;target/classes;' + (Get-Content -Raw test-classpath.txt)
+java -cp $olsClasspath vn.onlinelearn.BrowserTestServer
+```
+
+It uses port 18080 and explicitly labelled `[DEMO]` fixtures; demo test password is specified only in the test server class. On this Windows host use the JVM fallback option described above if needed. In another terminal start Vite with `VITE_API_PROXY=http://127.0.0.1:18080`, then run `npm run test:e2e` from `frontend`. Install Playwright Chromium or set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to an installed Chrome executable. The test harness is not a replacement for the required SQL Server deployment.

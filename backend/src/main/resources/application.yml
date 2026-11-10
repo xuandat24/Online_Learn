@@ -1,46 +1,71 @@
 server:
-  port: ${PORT:8081}
-
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  port: ${PORT:8801}
+  error:
+    include-message: never
 spring:
+  profiles:
+    default: local
   application:
-    name: morrow-learning-platform
+    name: onlinelearn
   datasource:
-    url: ${DB_URL:jdbc:h2:file:./data/morrow;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false}
-    username: ${DB_USERNAME:sa}
+    url: ${DB_URL:jdbc:sqlserver://localhost:14333;databaseName=OnlineLearnDB;encrypt=true;trustServerCertificate=true;integratedSecurity=true;ipAddressPreference=IPv6First}
+    username: ${DB_USERNAME:}
     password: ${DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: 10
   jpa:
-    hibernate:
-      ddl-auto: update
     open-in-view: false
+    hibernate:
+      ddl-auto: validate
     properties:
       hibernate:
-        format_sql: true
-  jackson:
-    default-property-inclusion: non_null
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
   mail:
-    host: ${MAIL_HOST:localhost}
-    port: ${MAIL_PORT:25}
-    username: ${MAIL_USERNAME:}
-    password: ${MAIL_PASSWORD:}
+    host: smtp.gmail.com
+    port: 587
+    username: ${GMAIL_USERNAME:}
+    password: ${GMAIL_APP_PASSWORD:}
     properties:
-      mail.smtp.auth: ${MAIL_SMTP_AUTH:false}
-      mail.smtp.starttls.enable: ${MAIL_SMTP_STARTTLS:false}
-
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+  jackson:
+    time-zone: UTC
 management:
+  health:
+    mail:
+      enabled: ${SMTP_HEALTH_CHECK:false}
   endpoints:
     web:
       exposure:
-        include: health,info
-
+        include: health
 app:
-  jwt:
-    secret: ${JWT_SECRET:local-development-key-change-before-deployment-2026}
-    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
-  cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
-  admin:
-    email: ${ADMIN_EMAIL:}
-    password: ${ADMIN_PASSWORD:}
-    full-name: ${ADMIN_FULL_NAME:Platform Admin}
-  mail:
-    from: ${MAIL_FROM:no-reply@morrow.local}
+  public-backend-url: ${PUBLIC_BACKEND_URL:http://127.0.0.1:8801}
+  sepay:
+    merchant-id: ${SEPAY_MERCHANT_ID:}
+    secret-key: ${SEPAY_SECRET_KEY:}
+    ipn-secret-key: ${SEPAY_IPN_SECRET_KEY:}
+    checkout-url: ${SEPAY_CHECKOUT_URL:https://pay-sandbox.sepay.vn/v1/checkout/init}
+    api-url: ${SEPAY_API_URL:https://pgapi-sandbox.sepay.vn}
+    ipn-max-age-seconds: ${SEPAY_IPN_MAX_AGE_SECONDS:86400}
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  jwt-secret: ${JWT_SECRET}
+  token-minutes: 120
+  verify-hours: 24
+  reset-minutes: 30
+  demo-seed: ${DEMO_SEED:false}
+  demo-password: ${DEMO_PASSWORD:}
+  mail-mode: ${MAIL_MODE:smtp}
+  mail-directory: ${MAIL_DIRECTORY:../.runtime/mail}
+  vnpay:
+    tmn-code: ${VNPAY_TMN_CODE:}
+    hash-secret: ${VNPAY_HASH_SECRET:}
+    payment-url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+    query-url: https://sandbox.vnpayment.vn/merchant_webapi/api/transaction
+    return-url: ${VNPAY_RETURN_URL:http://localhost:5173/payment/return}
